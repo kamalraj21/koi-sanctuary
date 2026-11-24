@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>html,body{margin:0;background:#07131a}canvas{display:block}</style>
+</head><body>
+<canvas id="c" width="1200" height="630"></canvas>
+<script>
+// Renders og-preview.png (1200x630). Run: node scripts/make-og.mjs (or see README).
+const W = 1200, H = 630, TAU = Math.PI * 2;
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+const PROFILE = [0.00, 0.56, 0.88, 1.00, 0.96, 0.86, 0.72, 0.58, 0.44, 0.33, 0.24, 0.18, 0.14, 0.11];
+const V = {
+  kohaku: { base: '#f7f4ed', patch: '#e23d28', sumi: null, fin: 'rgba(247,244,237,0.62)' },
+  ogon:   { base: '#f7c844', patch: '#ffe785', sumi: null, fin: 'rgba(255,224,118,0.65)' },
+  showa:  { base: '#f3f1ec', patch: '#df3824', sumi: '#1b2028', fin: 'rgba(220,224,230,0.58)' },
+  tancho: { base: '#fcfbf8', patch: '#e62c22', sumi: null, fin: 'rgba(252,251,248,0.66)', crown: true },
+  asagi:  { base: '#4c7cc9', patch: '#e03e36', sumi: '#254275', fin: 'rgba(232,92,84,0.62)', flank: true }
+};
+
+function rng(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+
+function background() {
+  const g = ctx.createRadialGradient(W * 0.55, H * 0.55, 20, W * 0.55, H * 0.55, 760);
+  g.addColorStop(0, '#0e2a35'); g.addColorStop(0.55, '#0a1d26'); g.addColorStop(1, '#06121a');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const r = rng(7);
+  for (let i = 0; i < 26; i++) {
+    ctx.save();
+    ctx.translate(r() * W, r() * H); ctx.rotate(r() * Math.PI);
+    ctx.fillStyle = i % 2 ? 'rgba(5,13,18,0.5)' : 'rgba(14,36,47,0.42)';
+    ctx.beginPath(); ctx.ellipse(0, 0, 20 + r() * 40, 14 + r() * 22, 0, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+  ctx.strokeStyle = 'rgba(72,168,196,0.06)'; ctx.lineWidth = 26; ctx.lineCap = 'round';
+  for (let i = 0; i < 4; i++) {
+    ctx.beginPath();
+    for (let x = -40; x <= W + 40; x += 40) {
+      const y = H * (0.18 + i * 0.24) + Math.sin(x * 0.007 + i * 1.7) * 28;
+      x === -40 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  // soft vignette
+  const v = ctx.createRadialGradient(W / 2, H / 2, 300, W / 2, H / 2, 760);
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.45)');
+  ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+}
+
+function ripple(x, y, r, a, col = '215,242,255') {
+  ctx.strokeStyle = `rgba(${col},${a})`; ctx.lineWidth = 1.6;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
+}
+
+function lily(x, y, r, notch, lotus) {
+  ctx.save();
+  ctx.fillStyle = 'rgba(2,8,12,0.35)';
+  ctx.beginPath(); ctx.arc(x + 5, y + 8, r, notch + 0.28, notch + TAU - 0.28); ctx.lineTo(x + 5, y + 8); ctx.fill();
+  const g = ctx.createRadialGradient(x, y, r * 0.15, x, y, r);
+  g.addColorStop(0, '#1d5646'); g.addColorStop(0.85, '#154236'); g.addColorStop(1, '#266d58');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(x, y, r, notch + 0.28, notch + TAU - 0.28); ctx.lineTo(x, y); ctx.fill();
+  ctx.strokeStyle = 'rgba(110,198,168,0.22)'; ctx.lineWidth = 1.2;
+  for (let v = 0; v < 7; v++) {
+    const a = notch + 0.55 + (v / 7) * (TAU - 1.1);
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * r * 0.88, y + Math.sin(a) * r * 0.88); ctx.stroke();
+  }
+  if (lotus) {
+    const fr = r * 0.4;
+    for (let p = 0; p < 8; p++) {
+      const a = (p / 8) * TAU;
+      ctx.fillStyle = lotus;
+      ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * fr * 0.55, y + Math.sin(a) * fr * 0.55, fr * 0.55, fr * 0.26, a, 0, TAU); ctx.fill();
+    }
+    ctx.fillStyle = '#ffd269'; ctx.beginPath(); ctx.arc(x, y, fr * 0.26, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function pellet(x, y) {
+  const g = ctx.createRadialGradient(x, y, 1, x, y, 18);
+  g.addColorStop(0, 'rgba(255,210,105,0.6)'); g.addColorStop(1, 'rgba(255,210,105,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 18, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#ffd269'; ctx.beginPath(); ctx.arc(x, y, 5.5, 0, TAU); ctx.fill();
+}
+
+// Spine follows a gentle S-curve; nodes[0] is the head.
+function koi(hx, hy, ang, len, variety, phase, seed) {
+  const v = V[variety];
+  const N = 14, seg = len / (N - 1);
+  const nodes = [];
+  let a = ang + Math.PI;
+  let x = hx, y = hy;
+  for (let i = 0; i < N; i++) {
+    nodes.push({ x, y });
+    const t = i / (N - 1);
+    a += Math.sin(phase - t * 4.4) * 0.09 * (t > 0.3 ? 1.6 : 0.4);
+    x += Math.cos(a) * seg; y += Math.sin(a) * seg;
+  }
+  const R = len * 0.145;
+  const L = [], Rt = [];
+  for (let i = 0; i < N; i++) {
+    const p = nodes[Math.max(0, i - 1)], n = nodes[Math.min(N - 1, i + 1)];
+    let tx = p.x - n.x, ty = p.y - n.y; const l = Math.hypot(tx, ty) || 1; tx /= l; ty /= l;
+    const nx = -ty, ny = tx, r = PROFILE[i] * R;
+    L.push({ x: nodes[i].x + nx * r, y: nodes[i].y + ny * r, nx, ny });
+    Rt.push({ x: nodes[i].x - nx * r, y: nodes[i].y - ny * r });
+  }
+  const hull = () => {
+    ctx.beginPath(); ctx.moveTo(L[0].x, L[0].y);
+    for (let i = 1; i < N; i++) ctx.quadraticCurveTo(L[i - 1].x, L[i - 1].y, (L[i - 1].x + L[i].x) / 2, (L[i - 1].y + L[i].y) / 2);
+    ctx.lineTo(Rt[N - 1].x, Rt[N - 1].y);
+    for (let i = N - 2; i >= 0; i--) ctx.quadraticCurveTo(Rt[i + 1].x, Rt[i + 1].y, (Rt[i + 1].x + Rt[i].x) / 2, (Rt[i + 1].y + Rt[i].y) / 2);
+    ctx.closePath();
+  };
+  ctx.save();
+  ctx.save(); ctx.translate(8, 12); ctx.fillStyle = 'rgba(2,7,11,0.5)'; hull(); ctx.fill(); ctx.restore();
+  for (const fn of [{ i: 3, l: R * 1.65, w: R * 0.72, s: 0.55 }, { i: 7, l: R * 0.95, w: R * 0.45, s: 0.65 }]) {
+    const p = nodes[fn.i], nx = L[fn.i].nx, ny = L[fn.i].ny, base = Math.atan2(ny, nx);
+    for (const side of [-1, 1]) {
+      ctx.save();
+      ctx.translate(p.x + nx * side * R * 0.55, p.y + ny * side * R * 0.55);
+      ctx.rotate((side === 1 ? base : base + Math.PI) + side * fn.s);
+      ctx.fillStyle = v.fin; ctx.beginPath(); ctx.ellipse(fn.l * 0.5, 0, fn.l * 0.55, fn.w * 0.45, 0, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+  }
+  const tb = nodes[N - 1], tp = nodes[N - 3], ta = Math.atan2(tb.y - tp.y, tb.x - tp.x);
+  const tl = R * 1.9, ts = R * 1.15;
+  ctx.save(); ctx.translate(tb.x, tb.y); ctx.rotate(ta + Math.sin(phase) * 0.25);
+  ctx.fillStyle = v.fin; ctx.beginPath(); ctx.moveTo(0, 0);
+  ctx.quadraticCurveTo(tl * 0.55, -ts, tl, -ts * 0.85); ctx.quadraticCurveTo(tl * 0.62, 0, tl, ts * 0.85);
+  ctx.quadraticCurveTo(tl * 0.55, ts, 0, 0); ctx.fill(); ctx.restore();
+
+  ctx.save(); hull(); ctx.fillStyle = v.base; ctx.fill(); ctx.clip();
+  ctx.fillStyle = v.patch;
+  if (v.crown) { ctx.beginPath(); ctx.arc(nodes[1].x, nodes[1].y, R * 0.56, 0, TAU); ctx.fill(); }
+  else if (v.flank) { for (const i of [4, 6, 8]) { ctx.beginPath(); ctx.arc(L[i].x, L[i].y, R * 0.52, 0, TAU); ctx.arc(Rt[i].x, Rt[i].y, R * 0.52, 0, TAU); ctx.fill(); } }
+  else {
+    [2, 5, 8, 10].forEach((i, p) => {
+      const w = Math.sin(seed + p * 2.1);
+      if (w > -0.25) { ctx.beginPath(); ctx.arc(nodes[i].x + L[i].nx * w * R * 0.35, nodes[i].y + L[i].ny * w * R * 0.35, R * (0.72 + (p % 2) * 0.2), 0, TAU); ctx.fill(); }
+    });
+  }
+  if (v.sumi) { ctx.fillStyle = v.sumi; for (const i of [3, 7]) { const o = Math.cos(seed + i) * R * 0.42; ctx.beginPath(); ctx.arc(nodes[i].x + L[i].nx * o, nodes[i].y + L[i].ny * o, R * 0.46, 0, TAU); ctx.fill(); } }
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(nodes[1].x, nodes[1].y);
+  for (let i = 2; i < 10; i++) ctx.lineTo(nodes[i].x, nodes[i].y); ctx.stroke();
+  ctx.restore();
+  hull(); ctx.strokeStyle = 'rgba(10,18,24,0.65)'; ctx.lineWidth = 1.6; ctx.stroke();
+  ctx.fillStyle = '#091218';
+  for (const e of [L[1], Rt[1]]) { ctx.beginPath(); ctx.arc(e.x * 0.82 + nodes[1].x * 0.18, e.y * 0.82 + nodes[1].y * 0.18, len * 0.022, 0, TAU); ctx.fill(); }
+  ctx.restore();
+}
+
+function pier(x, y, w, h) {
+  ctx.save();
+  ctx.fillStyle = 'rgba(2,8,12,0.55)'; ctx.beginPath(); ctx.roundRect(x + 8, y + 10, w, h, 12); ctx.fill();
+  ctx.fillStyle = '#3a291e'; ctx.strokeStyle = '#1d140e'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, 10); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(20,13,9,0.65)'; ctx.lineWidth = 1.4;
+  for (let i = 1; i < 5; i++) { const py = y + (h / 5) * i; ctx.beginPath(); ctx.moveTo(x + 5, py); ctx.lineTo(x + w - 5, py); ctx.stroke(); }
+  for (const lx of [x + 18, x + w - 18]) {
+    const ly = y + h - 16;
+    const g = ctx.createRadialGradient(lx, ly, 2, lx, ly, 60);
+    g.addColorStop(0, 'rgba(255,210,105,0.55)'); g.addColorStop(1, 'rgba(255,210,105,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(lx, ly, 60, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ffd269'; ctx.strokeStyle = '#6b3e14'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.ellipse(lx, ly, 7.5, 9.5, 0, 0, TAU); ctx.fill(); ctx.stroke();
+  }
+  const bx = x + w * 0.42, by = y + h * 0.66;
+  ctx.setLineDash([8, 6]); ctx.strokeStyle = 'rgba(94,234,212,0.6)'; ctx.lineWidth = 2.2;
+  ctx.beginPath(); ctx.arc(bx, by, 84, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = '#5eead4'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.arc(bx, by, 84, -Math.PI / 2, -Math.PI / 2 + TAU * 0.68); ctx.stroke();
+  ctx.fillStyle = '#8b6334'; ctx.strokeStyle = '#3b2610'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(bx, by, 24, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#24180c'; ctx.beginPath(); ctx.arc(bx, by, 16, 0, TAU); ctx.fill();
+  ctx.restore();
+  return { bx, by };
+}
+
+function heronReticle(x, y, r) {
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,36,66,0.12)'; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  ctx.setLineDash([8, 6]); ctx.strokeStyle = 'rgba(255,36,66,0.75)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = '#ff2442'; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.arc(x, y, r * 0.55, 0, TAU); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x - 10, y); ctx.lineTo(x + 10, y); ctx.moveTo(x, y - 10); ctx.lineTo(x, y + 10); ctx.stroke();
+  ctx.restore();
+}
+
+function pill(x, y, text, opts) {
+  ctx.save();
+  ctx.font = opts.font;
+  const tw = ctx.measureText(text).width;
+  const w = tw + opts.padX * 2, h = opts.h;
+  ctx.fillStyle = opts.bg; ctx.strokeStyle = opts.border; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, h / 2); ctx.fill(); if (opts.border) ctx.stroke();
+  ctx.fillStyle = opts.color; ctx.textBaseline = 'middle'; ctx.fillText(text, x + opts.padX, y + h / 2 + 1);
+  ctx.restore();
+  return w;
+}
+
+async function draw() {
+  await Promise.all([
+    document.fonts.load('700 104px "Crimson Text"'),
+    document.fonts.load('600 30px "DM Sans"'),
+    document.fonts.load('700 24px "DM Sans"')
+  ]);
+  background();
+
+  lily(118, 560, 74, -1.0, '#fef3c7');
+  lily(250, 600, 44, 2.6, null);
+  lily(720, 70, 52, 0.9, '#f9a8d4');
+  lily(1120, 560, 66, 2.2, '#fbcfe8');
+
+  const P = pier(985, 30, 196, 110);
+
+  heronReticle(1050, 430, 60);
+
+  // Ripples along the school's path
+  ripple(700, 450, 60, 0.18); ripple(700, 450, 96, 0.09);
+  ripple(860, 300, 44, 0.16);
+
+  for (const [px, py] of [[1000, 215], [930, 345], [620, 330], [705, 600], [900, 470]]) pellet(px, py);
+
+  // School curving up toward the pier: trailing koi first so the lead draws on top.
+  const toPier = (x, y) => Math.atan2(P.by - y, P.bx - x);
+  koi(650, 575, toPier(650, 575) - 0.5, 128, 'asagi', 1.2, 3);
+  koi(770, 505, toPier(770, 505) - 0.25, 136, 'tancho', 2.1, 5);
+  koi(655, 440, toPier(655, 440) + 0.1, 138, 'showa', 0.5, 2);
+  koi(800, 380, toPier(800, 380) - 0.05, 156, 'ogon', 2.8, 9);
+  koi(905, 265, toPier(905, 265) - 0.1, 200, 'kohaku', 1.7, 1.3);
+
+  // Popup text near the basket
+  ctx.save();
+  ctx.font = '800 22px "DM Sans"'; ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(4,11,16,0.85)'; ctx.fillText('ORDER COMPLETE! +¥482', P.bx - 40 + 1, P.by + 120 + 2);
+  ctx.fillStyle = '#5eead4'; ctx.fillText('ORDER COMPLETE! +¥482', P.bx - 40, P.by + 120);
+  ctx.restore();
+
+  // Title block with a soft scrim for legibility
+  const scrim = ctx.createLinearGradient(0, 0, 560, 0);
+  scrim.addColorStop(0, 'rgba(5,14,20,0.78)'); scrim.addColorStop(0.75, 'rgba(5,14,20,0.35)'); scrim.addColorStop(1, 'rgba(5,14,20,0)');
+  ctx.fillStyle = scrim; ctx.fillRect(0, 0, 600, H);
+
+  ctx.save();
+  ctx.fillStyle = '#ffd269';
+  ctx.font = '700 22px "DM Sans"';
+  ctx.letterSpacing = '4px';
+  ctx.fillText('A ONE-MINUTE POND GAME', 72, 150);
+  ctx.restore();
+
+  ctx.save();
+  ctx.fillStyle = '#f3f8fb';
+  ctx.font = '700 104px "Crimson Text"';
+  ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 18;
+  ctx.fillText('Koi', 68, 250);
+  ctx.fillText('Sanctuary', 68, 340);
+  ctx.restore();
+
+  ctx.save();
+  ctx.fillStyle = '#c8dce7';
+  ctx.font = '500 29px "DM Sans"';
+  ctx.fillText('Grow your school. Dodge the heron.', 72, 400);
+  ctx.fillText('Cash out at the lantern pier.', 72, 440);
+  ctx.restore();
+
+  const w1 = pill(72, 488, '▶  Play free in your browser', {
+    font: '700 24px "DM Sans"', padX: 24, h: 56, bg: '#ffd269', border: null, color: '#131b20'
+  });
+  ctx.save(); ctx.fillStyle = 'rgba(200,220,231,0.75)'; ctx.font = '500 20px "DM Sans"';
+  ctx.fillText('No install • Phone or desktop', 72, 580); ctx.restore();
+
+  document.title = 'ready';
+}
+draw();
+</script>
+</body></html>

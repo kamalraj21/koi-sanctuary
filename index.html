@@ -1,0 +1,4689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Koi Sanctuary — Sumi-e Koi Farm</title>
+<meta name="description" content="Grow a living school of Sumi-e koi, dodge snapping turtles and heron strikes, and cash out at the lantern pier. A one-minute pond game for phone and desktop.">
+<meta name="theme-color" content="#07131a">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307131a'/%3E%3Ccircle cx='32' cy='32' r='24' fill='none' stroke='%23ffd269' stroke-width='2' opacity='0.45'/%3E%3Cpath d='M16 36c6-12 20-18 32-12-4 10-12 20-26 22l-8 5 4-11z' fill='%23f8f5ef'/%3E%3Cpath d='M25 27c7-4 15-4 21-1-3 5-7 10-14 12-4-2-7-6-7-11z' fill='%23e03e28'/%3E%3Ccircle cx='42' cy='27' r='2.2' fill='%2307131a'/%3E%3Ccircle cx='20' cy='46' r='4.5' fill='%23ffd269'/%3E%3C/svg%3E">
+
+<!-- DEPLOY_META_START -->
+<!-- scripts/build.mjs rewrites https://kamalraj21.github.io/koi-sanctuary to SITE_URL at deploy time.
+     Share links with ?ref=wa / ?ref=li / ?ref=dc so the pilot can attribute traffic. -->
+<link rel="canonical" href="https://kamalraj21.github.io/koi-sanctuary/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Koi Sanctuary">
+<meta property="og:title" content="Koi Sanctuary: grow your koi school, dodge the heron">
+<meta property="og:description" content="A one-minute ink-wash pond game. Eat, grow a living school of koi, slip past snapping turtles and heron strikes, then cash out at the lantern pier. Free, no install, phone or desktop.">
+<meta property="og:url" content="https://kamalraj21.github.io/koi-sanctuary/">
+<meta property="og:image" content="https://kamalraj21.github.io/koi-sanctuary/og-preview.png">
+<meta property="og:image:secure_url" content="https://kamalraj21.github.io/koi-sanctuary/og-preview.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A school of red, white and gold koi swimming toward a lantern-lit pier in a dark ink-wash pond.">
+
+<!-- Twitter / X Card -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Koi Sanctuary: grow your koi school, dodge the heron">
+<meta name="twitter:description" content="One-minute ink-wash pond game. Grow a living koi school, dodge turtles and herons, cash out at the lantern pier.">
+<meta name="twitter:image" content="https://kamalraj21.github.io/koi-sanctuary/og-preview.png">
+<meta name="twitter:image:alt" content="A school of koi swimming toward a lantern-lit pier.">
+<!-- DEPLOY_META_END -->
+
+<style>
+  :root {
+    --bg-deep: #07131a;
+    --glass-bg: rgba(9, 22, 30, 0.78);
+    --glass-border: rgba(164, 206, 224, 0.22);
+    --text-main: #eef6fa;
+    --text-muted: #93b0c0;
+    --gold: #ffd269;
+    --emerald: #5eead4;
+    --crimson: #ff3b56;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html, body {
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    background: var(--bg-deep);
+    color: var(--text-main);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+
+  canvas#pond-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    z-index: 1;
+  }
+
+  /* =========================================================
+     MINIMALIST ADAPTIVE HUD
+     ========================================================= */
+  #hud-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10;
+    padding: calc(10px + var(--safe-top)) calc(12px + var(--safe-right)) calc(12px + var(--safe-bottom)) calc(12px + var(--safe-left));
+  }
+
+  .hud-top-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .hud-left-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .glass-pill {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+    pointer-events: auto;
+  }
+
+  #stats-pill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .yen-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--gold);
+    font-variant-numeric: tabular-nums;
+    font-size: 14px;
+    font-weight: 700;
+    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .yen-wrap.pop {
+    transform: scale(1.18);
+  }
+
+  .sep-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: rgba(164, 206, 224, 0.32);
+  }
+
+  .school-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-main);
+    font-variant-numeric: tabular-nums;
+  }
+  .passive-rate {
+    color: var(--emerald);
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+
+  .grow-bar {
+    display: inline-block;
+    width: 34px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(164, 206, 224, 0.18);
+    overflow: hidden;
+    vertical-align: middle;
+  }
+  .grow-bar i {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: var(--emerald);
+    border-radius: 999px;
+    transition: width 0.2s ease;
+  }
+
+  .loop-chips {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #c5dce8;
+  }
+  .loop-chips .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 11px;
+    border-radius: 999px;
+    background: rgba(15, 32, 43, 0.8);
+    border: 1px solid rgba(164, 206, 224, 0.18);
+  }
+  .loop-chips .chip i {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .loop-chips .arrow {
+    color: rgba(164, 206, 224, 0.45);
+  }
+  .welcome-note {
+    font-size: 12.5px;
+    color: var(--text-muted);
+  }
+  .welcome-note b {
+    color: var(--crimson);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+
+  #combo-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(255, 168, 52, 0.2);
+    border: 1px solid rgba(255, 210, 105, 0.55);
+    color: var(--gold);
+    font-size: 12px;
+    font-weight: 700;
+    opacity: 0;
+    transform: translateY(-4px) scale(0.92);
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    pointer-events: none;
+  }
+  #combo-pill.active {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  /* Market Order Pill (Desktop inline, Mobile collapsible) */
+  #order-pill {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 14px;
+    font-size: 12.5px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  #order-pill.ready {
+    border-color: rgba(94, 234, 212, 0.7);
+    background: rgba(13, 44, 42, 0.86);
+    box-shadow: 0 0 18px rgba(94, 234, 212, 0.24);
+  }
+  .order-tag {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    color: var(--gold);
+    background: rgba(255, 210, 105, 0.14);
+    padding: 2px 7px;
+    border-radius: 999px;
+  }
+  #order-pill.ready .order-tag {
+    color: #06211e;
+    background: var(--emerald);
+  }
+  .order-reqs {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-main);
+    font-weight: 600;
+  }
+  .req-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+  }
+  .req-chip.done {
+    color: var(--emerald);
+  }
+  .req-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.45);
+  }
+  .order-bonus {
+    color: var(--emerald);
+    font-weight: 700;
+    font-size: 12px;
+  }
+
+  /* Mobile Compact Order Badge + Expandable Popover */
+  #mobile-order-btn {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--gold);
+    cursor: pointer;
+  }
+  #mobile-order-btn.ready {
+    border-color: rgba(94, 234, 212, 0.75);
+    color: var(--emerald);
+    background: rgba(13, 44, 42, 0.88);
+  }
+
+  #mobile-order-popover {
+    display: none;
+    position: fixed;
+    top: calc(86px + var(--safe-top));
+    left: calc(12px + var(--safe-left));
+    right: calc(12px + var(--safe-right));
+    max-width: 340px;
+    background: rgba(9, 22, 30, 0.94);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(164, 206, 224, 0.3);
+    border-radius: 14px;
+    padding: 12px 14px;
+    z-index: 25;
+    pointer-events: auto;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65);
+  }
+  #mobile-order-popover.open {
+    display: block;
+  }
+
+  /* Top-Right 44x44 Touch Action Buttons */
+  .hud-right-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: auto;
+  }
+
+  .icon-btn {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    color: var(--text-main);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+    transition: transform 0.14s ease, border-color 0.16s ease, background 0.16s ease;
+  }
+  .icon-btn:hover {
+    border-color: rgba(255, 210, 105, 0.6);
+    background: rgba(16, 36, 48, 0.9);
+  }
+  .icon-btn:active {
+    transform: scale(0.93);
+  }
+
+  .notif-dot {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    background: var(--gold);
+    border: 2px solid #07131a;
+    box-shadow: 0 0 10px var(--gold);
+    display: none;
+    animation: pulseDot 1.6s infinite ease-in-out;
+  }
+  .notif-dot.show {
+    display: block;
+  }
+  @keyframes pulseDot {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.24); }
+  }
+
+  /* Subtle Onboarding Control Hint */
+  #control-hint {
+    position: fixed;
+    bottom: calc(26px + var(--safe-bottom));
+    left: 50%;
+    transform: translateX(-50%) translateY(8px);
+    background: rgba(8, 20, 28, 0.82);
+    border: 1px solid rgba(164, 206, 224, 0.24);
+    color: #cbe2ee;
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    white-space: nowrap;
+  }
+  #control-hint.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* =========================================================
+     MOBILE ERGONOMIC DASH BUTTON & SVG RADIAL STAMINA RING
+     ========================================================= */
+  #dash-btn {
+    position: fixed;
+    right: calc(18px + var(--safe-right));
+    bottom: calc(22px + var(--safe-bottom));
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background: rgba(10, 26, 36, 0.82);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: none;
+    color: var(--text-main);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 1px;
+    cursor: pointer;
+    pointer-events: auto;
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.55);
+    transition: transform 0.1s ease;
+    z-index: 15;
+  }
+  #dash-btn.visible {
+    display: flex;
+  }
+  #dash-btn.active {
+    transform: scale(0.92);
+    background: rgba(24, 64, 84, 0.92);
+  }
+  #dash-btn svg.ring-svg {
+    position: absolute;
+    inset: 0;
+    width: 68px;
+    height: 68px;
+    transform: rotate(-90deg);
+    pointer-events: none;
+  }
+  #dash-btn .dash-label {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    color: #cde9f6;
+  }
+
+  /* =========================================================
+     TOAST BANNER
+     ========================================================= */
+  #toast {
+    position: fixed;
+    top: calc(64px + var(--safe-top));
+    left: 50%;
+    transform: translateX(-50%) translateY(-10px);
+    background: rgba(10, 25, 34, 0.94);
+    border: 1px solid rgba(255, 210, 105, 0.45);
+    color: var(--text-main);
+    padding: 8px 16px;
+    border-radius: 12px;
+    font-size: 12.5px;
+    text-align: center;
+    z-index: 40;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease, transform 0.22s ease;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.65);
+    max-width: calc(100vw - 32px);
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  #toast strong {
+    color: var(--gold);
+    display: block;
+    font-size: 13px;
+  }
+  #toast span {
+    color: var(--text-muted);
+    font-size: 11.5px;
+  }
+
+  /* =========================================================
+     MODALS & NATIVE MOBILE BOTTOM SHEETS
+     ========================================================= */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(3, 10, 15, 0.74);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 50;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+  }
+  .overlay.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .sheet-card {
+    background: rgba(10, 23, 32, 0.96);
+    border: 1px solid rgba(164, 206, 224, 0.26);
+    border-radius: 20px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.82);
+    width: 100%;
+    max-width: 620px;
+    max-height: 85dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: translateY(14px) scale(0.98);
+    transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .overlay.open .sheet-card {
+    transform: translateY(0) scale(1);
+  }
+
+  .sheet-handle {
+    display: none;
+    width: 38px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(164, 206, 224, 0.3);
+    margin: 10px auto 2px;
+    flex-shrink: 0;
+  }
+
+  .sheet-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid rgba(164, 206, 224, 0.14);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .sheet-title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-main);
+  }
+  .sheet-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .close-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(164, 206, 224, 0.2);
+    color: var(--text-main);
+    font-size: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .close-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .sheet-body {
+    padding: 16px 18px calc(18px + var(--safe-bottom));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  /* Welcome Modal */
+  .welcome-card {
+    max-width: 460px;
+    text-align: center;
+  }
+  .welcome-crest {
+    width: 72px;
+    height: 72px;
+    margin: 2px auto 6px;
+    border-radius: 20px;
+    background: radial-gradient(circle at 30% 30%, rgba(255, 210, 105, 0.18), rgba(14, 34, 46, 0.8));
+    border: 1px solid rgba(255, 210, 105, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .loop-steps {
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: rgba(15, 32, 43, 0.72);
+    border: 1px solid rgba(164, 206, 224, 0.16);
+    border-radius: 14px;
+    padding: 14px;
+  }
+  .loop-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: #c5dce8;
+  }
+  .step-badge {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    background: rgba(255, 210, 105, 0.16);
+    border: 1px solid rgba(255, 210, 105, 0.4);
+    color: var(--gold);
+    font-size: 12px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+  }
+
+  .primary-cta {
+    width: 100%;
+    min-height: 46px;
+    border: none;
+    border-radius: 13px;
+    background: linear-gradient(135deg, #ffd269, #e59d2c);
+    color: #131b20;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(229, 157, 44, 0.35);
+    transition: transform 0.14s ease, filter 0.14s ease;
+  }
+  .primary-cta:hover {
+    filter: brightness(1.06);
+  }
+  .primary-cta:active {
+    transform: scale(0.97);
+  }
+
+  /* Shop Tabs & Cards */
+  .tab-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    background: rgba(6, 15, 21, 0.7);
+    padding: 4px;
+    border-radius: 12px;
+    border: 1px solid rgba(164, 206, 224, 0.15);
+  }
+  .tab-btn {
+    min-height: 36px;
+    border: none;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.16s, color 0.16s;
+  }
+  .tab-btn.active {
+    background: rgba(255, 210, 105, 0.18);
+    color: var(--gold);
+  }
+
+  .shop-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(255px, 1fr));
+    gap: 10px;
+  }
+
+  .item-card {
+    background: rgba(15, 32, 43, 0.78);
+    border: 1px solid rgba(164, 206, 224, 0.18);
+    border-radius: 14px;
+    padding: 13px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .item-card.equipped {
+    border-color: rgba(94, 234, 212, 0.65);
+    background: rgba(14, 42, 42, 0.75);
+  }
+  .item-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .item-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-main);
+  }
+  .koi-swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 255, 255, 0.55);
+    flex-shrink: 0;
+  }
+  .item-badge {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gold);
+  }
+  .item-card.equipped .item-badge {
+    color: var(--emerald);
+  }
+  .item-desc {
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text-muted);
+  }
+  .item-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .pips {
+    display: flex;
+    gap: 4px;
+  }
+  .pip {
+    width: 12px;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(164, 206, 224, 0.2);
+  }
+  .pip.on {
+    background: var(--gold);
+    box-shadow: 0 0 6px rgba(255, 210, 105, 0.5);
+  }
+
+  .action-btn {
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 210, 105, 0.45);
+    background: rgba(255, 210, 105, 0.16);
+    color: var(--gold);
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .action-btn:hover:not(:disabled) {
+    background: rgba(255, 210, 105, 0.28);
+  }
+  .action-btn:active:not(:disabled) {
+    transform: scale(0.95);
+  }
+  .action-btn:disabled {
+    opacity: 0.42;
+    cursor: not-allowed;
+    border-color: rgba(164, 206, 224, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-muted);
+  }
+  .action-btn.equip-ready {
+    border-color: rgba(94, 234, 212, 0.5);
+    background: rgba(94, 234, 212, 0.16);
+    color: var(--emerald);
+  }
+
+  /* Settings Rows */
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: rgba(15, 32, 43, 0.72);
+    border: 1px solid rgba(164, 206, 224, 0.16);
+    border-radius: 13px;
+    padding: 12px 14px;
+  }
+  .setting-info strong {
+    display: block;
+    font-size: 13.5px;
+    color: var(--text-main);
+  }
+  .setting-info span {
+    display: block;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+  .seg-toggle {
+    display: inline-flex;
+    background: rgba(6, 15, 21, 0.8);
+    border: 1px solid rgba(164, 206, 224, 0.2);
+    border-radius: 10px;
+    padding: 3px;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+  .seg-opt {
+    min-height: 32px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .seg-opt.active {
+    background: rgba(255, 210, 105, 0.2);
+    color: var(--gold);
+  }
+
+  .danger-btn {
+    min-height: 36px;
+    padding: 0 13px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 59, 86, 0.45);
+    background: rgba(255, 59, 86, 0.14);
+    color: #ff7b8d;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .danger-btn.armed {
+    background: var(--crimson);
+    color: #ffffff;
+    border-color: var(--crimson);
+  }
+
+  /* =========================================================
+     MOBILE BOTTOM SHEET ADAPTATION (<= 680px)
+     ========================================================= */
+  @media (max-width: 680px) {
+    #order-pill {
+      display: none !important;
+    }
+    #mobile-order-btn {
+      display: inline-flex;
+    }
+    #stats-pill {
+      padding: 6px 11px;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .yen-wrap {
+      font-size: 13px;
+    }
+
+    .overlay.bottom-sheet-mode {
+      align-items: flex-end;
+      padding: 0;
+    }
+    .overlay.bottom-sheet-mode .sheet-card {
+      max-width: 100%;
+      max-height: 82dvh;
+      border-radius: 22px 22px 0 0;
+      border-left: none;
+      border-right: none;
+      border-bottom: none;
+      transform: translateY(100%);
+    }
+    .overlay.bottom-sheet-mode.open .sheet-card {
+      transform: translateY(0);
+    }
+    .overlay.bottom-sheet-mode .sheet-handle {
+      display: block;
+    }
+    .shop-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="pond-canvas"></canvas>
+
+<!-- =========================================================
+     MINIMALIST ADAPTIVE HUD
+     ========================================================= -->
+<div id="hud-layer">
+  <div class="hud-top-row">
+    <div class="hud-left-stack">
+      <div id="stats-pill" class="glass-pill">
+        <span id="yen-display" class="yen-wrap">¥<span id="yen-val">0</span></span>
+        <span class="sep-dot"></span>
+        <span class="school-wrap" title="School size. The bar fills toward your next koi.">School: <strong id="school-val">0</strong> <span class="grow-bar" aria-hidden="true"><i id="grow-fill"></i></span> <span id="passive-val" class="passive-rate">+0¥/s</span></span>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button id="mobile-order-btn" class="glass-pill" type="button" aria-label="View Market Order">
+          <span id="mob-order-label">Order: 0/0</span> <span>▾</span>
+        </button>
+        <div id="combo-pill">Combo <span id="combo-val">x1.5</span></div>
+      </div>
+    </div>
+
+    <!-- Desktop Market Order Pill -->
+    <div id="order-pill" class="glass-pill" title="Fulfill this school composition at the Market Pier for a bonus payout">
+      <span id="order-tag" class="order-tag">Order</span>
+      <span id="order-reqs" class="order-reqs"></span>
+      <span id="order-bonus" class="order-bonus">+50%</span>
+    </div>
+
+    <!-- Top-Right 44x44 Touch Targets -->
+    <div class="hud-right-actions">
+      <button id="btn-open-shop" class="icon-btn" type="button" aria-label="Farm Shop" title="Farm Shop">
+        <span id="shop-notif" class="notif-dot"></span>
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l2-5h14l2 5"/>
+          <path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/>
+          <path d="M5 12v8h14v-8"/>
+          <path d="M10 20v-5h4v5"/>
+        </svg>
+      </button>
+      <button id="btn-open-settings" class="icon-btn" type="button" aria-label="Pond Settings" title="Pond Settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile Expandable Market Order Popover -->
+  <div id="mobile-order-popover">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <span id="mob-pop-title" style="font-weight:800;font-size:13px;color:var(--gold);">Tea House Order</span>
+      <span id="mob-pop-bonus" style="font-weight:700;font-size:12px;color:var(--emerald);">+50% Bonus</span>
+    </div>
+    <div id="mob-pop-reqs" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;"></div>
+    <div style="font-size:11.5px;color:var(--text-muted);">Swim into the top-right <strong>Market Pier</strong> once fulfilled to cash out!</div>
+  </div>
+
+  <div id="control-hint">Steer with the mouse or WASD &bull; Hold click or Space to dash</div>
+
+  <!-- Ergonomic Mobile Radial-Stamina Dash Button -->
+  <button id="dash-btn" type="button" aria-label="Dash">
+    <svg class="ring-svg" viewBox="0 0 68 68">
+      <circle cx="34" cy="34" r="30" fill="none" stroke="rgba(164, 206, 224, 0.2)" stroke-width="4"/>
+      <circle id="dash-ring-arc" cx="34" cy="34" r="30" fill="none" stroke="#5eead4" stroke-width="4" stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="0"/>
+    </svg>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5eead4" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+    </svg>
+    <span class="dash-label">Dash</span>
+  </button>
+</div>
+
+<div id="toast"></div>
+
+<!-- =========================================================
+     WELCOME OVERLAY
+     ========================================================= -->
+<div id="start-overlay" class="overlay open">
+  <div class="sheet-card welcome-card">
+    <div class="sheet-body" style="padding-top:22px;">
+      <div class="welcome-crest">
+        <svg width="44" height="44" viewBox="0 0 64 64">
+          <path d="M12 38c7-14 23-21 37-14-5 12-14 23-30 25l-9 6 4-13z" fill="#f8f5ef"/>
+          <path d="M23 27c8-5 17-5 24-1-3 6-8 12-16 14-5-2-8-7-8-13z" fill="#e03e28"/>
+          <circle cx="43" cy="27" r="2.5" fill="#07131a"/>
+          <circle cx="18" cy="48" r="5.5" fill="#ffd269"/>
+        </svg>
+      </div>
+      <div>
+        <div class="sheet-title" style="font-size:20px;">Koi Sanctuary</div>
+        <div class="sheet-sub">A one-minute ink-wash pond game</div>
+      </div>
+
+      <div class="loop-chips" aria-label="Eat, grow your school, sell at the pier">
+        <span class="chip"><i style="background:#ffd269;"></i>Eat</span>
+        <span class="arrow">&rarr;</span>
+        <span class="chip"><i style="background:#f7f4ed;"></i>Grow school</span>
+        <span class="arrow">&rarr;</span>
+        <span class="chip"><i style="background:#5eead4;"></i>Sell at pier &#8599;</span>
+      </div>
+      <div class="welcome-note">Steer clear of anything <b>red</b>.</div>
+
+      <button id="btn-enter-pond" class="primary-cta" type="button">Start Swimming</button>
+    </div>
+  </div>
+</div>
+
+<!-- =========================================================
+     FARM SHOP BOTTOM SHEET
+     ========================================================= -->
+<div id="shop-overlay" class="overlay bottom-sheet-mode">
+  <div class="sheet-card">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div>
+        <div class="sheet-title">Koi Farm &amp; Breedery</div>
+        <div class="sheet-sub">Treasury: <strong id="shop-yen-val" style="color:var(--gold);">¥0</strong></div>
+      </div>
+      <button id="btn-close-shop" class="close-btn" type="button" aria-label="Close Shop">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="tab-bar">
+        <button id="tab-varieties" class="tab-btn active" type="button">Koi Varieties</button>
+        <button id="tab-upgrades" class="tab-btn" type="button">Pond Upgrades</button>
+      </div>
+      <div id="shop-grid" class="shop-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- =========================================================
+     POND SETTINGS BOTTOM SHEET
+     ========================================================= -->
+<div id="settings-overlay" class="overlay bottom-sheet-mode">
+  <div class="sheet-card" style="max-width:480px;">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div>
+        <div class="sheet-title">Pond Settings</div>
+        <div class="sheet-sub">Customize gameplay, touch controls &amp; audio</div>
+      </div>
+      <button id="btn-close-settings" class="close-btn" type="button" aria-label="Close Settings">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="setting-row">
+        <div class="setting-info">
+          <strong>Pond Mode</strong>
+          <span>Arcade earns 1.5× Yen with Herons &amp; Turtles</span>
+        </div>
+        <div class="seg-toggle">
+          <button id="set-mode-arcade" class="seg-opt active" type="button">Arcade 1.5×</button>
+          <button id="set-mode-zen" class="seg-opt" type="button">Zen</button>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <strong>Touch Steering</strong>
+          <span>Virtual thumb joystick or direct finger follow</span>
+        </div>
+        <div class="seg-toggle">
+          <button id="set-touch-joy" class="seg-opt active" type="button">Joystick</button>
+          <button id="set-touch-follow" class="seg-opt" type="button">Follow</button>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <strong>Water &amp; Koto Audio</strong>
+          <span>Procedural splashes, plops &amp; chimes</span>
+        </div>
+        <div class="seg-toggle">
+          <button id="set-sound-on" class="seg-opt active" type="button">On</button>
+          <button id="set-sound-off" class="seg-opt" type="button">Off</button>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <strong>Reset Farm Progress</strong>
+          <span>Clear Yen, unlocked breeds &amp; upgrades</span>
+        </div>
+        <button id="btn-reset-save" class="danger-btn" type="button">Reset Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const BUILD = 'pilot-1';
+
+  // Safari < 16 and older Android WebViews lack roundRect; the pier and labels need it.
+  if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+      let rad = typeof r === 'number' ? r : (Array.isArray(r) ? r[0] || 0 : 0);
+      rad = Math.max(0, Math.min(rad, Math.abs(w) / 2, Math.abs(h) / 2));
+      this.moveTo(x + rad, y);
+      this.arcTo(x + w, y, x + w, y + h, rad);
+      this.arcTo(x + w, y + h, x, y + h, rad);
+      this.arcTo(x, y + h, x, y, rad);
+      this.arcTo(x, y, x + w, y, rad);
+      this.closePath();
+      return this;
+    };
+  }
+
+  let reducedMotion = false;
+  try {
+    reducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  } catch (_) {}
+
+  /* =========================================================================
+     0A. SANDBOX-SAFE STORAGE & ENVIRONMENT HELPERS
+     (Prevents DOMException SecurityError inside sandboxed iframes)
+     ========================================================================= */
+  const memoryStorage = new Map();
+
+  function safeStorageGet(key, fallback = null) {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const val = window.localStorage.getItem(key);
+        if (val !== null) {
+          memoryStorage.set(key, val);
+          return val;
+        }
+      }
+    } catch (_) {
+      // Sandboxed iframe without allow-same-origin: fall back silently
+    }
+    return memoryStorage.has(key) ? memoryStorage.get(key) : fallback;
+  }
+
+  function safeStorageSet(key, value) {
+    const str = String(value);
+    memoryStorage.set(key, str);
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(key, str);
+      }
+    } catch (_) {
+      // Ignore storage write errors in restricted iframes
+    }
+  }
+
+  function safeGetQueryParam(paramName) {
+    try {
+      if (typeof window !== 'undefined' && window.location && window.location.search) {
+        return new URLSearchParams(window.location.search).get(paramName);
+      }
+    } catch (_) {
+      // Ignore opaque-origin location access errors
+    }
+    return null;
+  }
+
+  function safeIsVisible() {
+    try {
+      return typeof document !== 'undefined' ? document.visibilityState === 'visible' : true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /* =========================================================================
+     0B. PLUG-AND-PLAY PILOT ANALYTICS WRAPPER (window.KoiAnalytics)
+     ========================================================================= */
+  /* ANALYTICS_CONFIG_START */
+  const ANALYTICS_CONFIG = {
+    provider: 'posthog', // 'none' | 'umami' | 'posthog' | 'console'
+    umamiWebsiteId: '',
+    umamiScriptUrl: 'https://cloud.umami.is/script.js',
+    posthogKey: 'phc_qvT5xoz3HGiGB9ZUPyHTYr3Sq4skZRmHdCJeWZnkVXga',
+    posthogHost: 'https://us.i.posthog.com',
+    // Umami bills every stored event property as an event, so only the most
+    // useful properties per event are forwarded there. PostHog gets everything.
+    umamiMaxProps: 3
+  };
+  /* ANALYTICS_CONFIG_END */
+
+  const UMAMI_KEYS = {
+    game_start:      ['device', 'returning', 'ref'],
+    first_harvest:   ['ttfh_bucket', 'device', 'school_bucket'],
+    harvest:         ['school_bucket', 'order_done', 'device'],
+    shop_upgrade:    ['item', 'level'],
+    enemy_hit:       ['hazard', 'school_bucket', 'koi_lost'],
+    session_ping:    ['minute', 'device']
+  };
+
+  // Per-session caps keep a long session from eating the free-tier budget.
+  const EVENT_CAPS = { session_ping: 15, enemy_hit: 25, harvest: 30, shop_upgrade: 30 };
+
+  const KoiAnalytics = (() => {
+    const debugMode = safeGetQueryParam('debug') === 'analytics';
+    const eventLog = [];
+    const pendingQueue = [];
+    const counts = {};
+    let sdkReady = false;
+    let contextFn = () => ({});
+
+    function umamiPayload(name, payload) {
+      // Onboarding events (ob_*) are separate names so Umami funnels can use them.
+      const keys = UMAMI_KEYS[name] || ['device'];
+      const out = {};
+      let n = 0;
+      for (const k of keys) {
+        if (n >= (ANALYTICS_CONFIG.umamiMaxProps || 3)) break;
+        if (payload[k] === undefined) continue;
+        out[k] = payload[k];
+        n++;
+      }
+      return out;
+    }
+
+    function dispatchToProvider(name, payload) {
+      try {
+        if (ANALYTICS_CONFIG.provider === 'umami' && window.umami && typeof window.umami.track === 'function') {
+          window.umami.track(name, umamiPayload(name, payload));
+          return true;
+        }
+        if (ANALYTICS_CONFIG.provider === 'posthog' && window.posthog && window.posthog.__loaded && typeof window.posthog.capture === 'function') {
+          window.posthog.capture(name, payload);
+          return true;
+        }
+      } catch (_) {}
+      return false;
+    }
+
+    function flushQueue() {
+      if (!pendingQueue.length) return;
+      const items = pendingQueue.splice(0, pendingQueue.length);
+      for (const item of items) {
+        dispatchToProvider(item.name, item.payload);
+      }
+    }
+
+    function initSDK() {
+      try {
+        if (ANALYTICS_CONFIG.provider === 'umami' && ANALYTICS_CONFIG.umamiWebsiteId) {
+          const s = document.createElement('script');
+          s.async = true;
+          s.defer = true;
+          s.src = ANALYTICS_CONFIG.umamiScriptUrl || 'https://cloud.umami.is/script.js';
+          s.setAttribute('data-website-id', ANALYTICS_CONFIG.umamiWebsiteId);
+          s.onload = () => { sdkReady = true; flushQueue(); };
+          s.onerror = () => {};
+          document.head.appendChild(s);
+        } else if (ANALYTICS_CONFIG.provider === 'posthog' && ANALYTICS_CONFIG.posthogKey) {
+          const host = (ANALYTICS_CONFIG.posthogHost || 'https://us.i.posthog.com').replace(/\/$/, '');
+          const assetHost = host.replace('.i.posthog.com', '-assets.i.posthog.com');
+          const s = document.createElement('script');
+          s.async = true;
+          s.crossOrigin = 'anonymous';
+          s.src = `${assetHost}/static/array.js`;
+          s.onload = () => {
+            try {
+              if (window.posthog && typeof window.posthog.init === 'function') {
+                window.posthog.init(ANALYTICS_CONFIG.posthogKey, {
+                  api_host: host,
+                  // localStorage keeps the anonymous ID across days so 7-day retention works.
+                  persistence: 'localStorage',
+                  person_profiles: 'always',
+                  autocapture: false,
+                  capture_pageview: true,
+                  disable_session_recording: true,
+                  loaded: () => { sdkReady = true; flushQueue(); }
+                });
+                sdkReady = true;
+                flushQueue();
+              }
+            } catch (_) {}
+          };
+          s.onerror = () => {};
+          document.head.appendChild(s);
+        }
+      } catch (_) {}
+    }
+
+    function track(eventName, payload = {}) {
+      try {
+        counts[eventName] = (counts[eventName] || 0) + 1;
+        if (EVENT_CAPS[eventName] && counts[eventName] > EVENT_CAPS[eventName]) return;
+        let ctxProps = {};
+        try { ctxProps = contextFn() || {}; } catch (_) {}
+        const merged = { ...ctxProps, ...payload };
+        const entry = { event: eventName, payload: merged, ts: Date.now() };
+        if (debugMode || ANALYTICS_CONFIG.provider === 'console') {
+          eventLog.push(entry);
+          if (eventLog.length > 200) eventLog.shift();
+          if (typeof console !== 'undefined' && console.log) {
+            console.log('[KoiAnalytics]', eventName, JSON.stringify(merged));
+          }
+        }
+        if (ANALYTICS_CONFIG.provider === 'umami' || ANALYTICS_CONFIG.provider === 'posthog') {
+          const sent = dispatchToProvider(eventName, merged);
+          if (!sent && !sdkReady && pendingQueue.length < 30) {
+            pendingQueue.push({ name: eventName, payload: merged });
+          }
+        }
+      } catch (_) {}
+    }
+
+    function setContext(fn) {
+      if (typeof fn === 'function') contextFn = fn;
+    }
+
+    function getEvents() {
+      return eventLog.slice();
+    }
+
+    initSDK();
+    return { track, setContext, getEvents, config: ANALYTICS_CONFIG };
+  })();
+
+  window.KoiAnalytics = KoiAnalytics;
+
+  /* =========================================================================
+     1. CORE CONSTANTS: KOI VARIETIES, MATURITY TIERS, UPGRADES & ORDERS
+     ========================================================================= */
+  const TAU = Math.PI * 2;
+  const IK_NODES = 14;
+
+  // Tapered width profile across 14 spine nodes (head -> caudal peduncle)
+  const BODY_PROFILE = [
+    0.00, 0.56, 0.88, 1.00, 0.96, 0.86, 0.72,
+    0.58, 0.44, 0.33, 0.24, 0.18, 0.14, 0.11
+  ];
+
+  const VARIETIES = {
+    kohaku: {
+      id: 'kohaku',
+      name: 'Kohaku',
+      cost: 0,
+      mult: 1.0,
+      baseColor: '#f7f4ed',
+      patchColor: '#e23d28',
+      sumiColor: null,
+      finColor: 'rgba(247, 244, 237, 0.62)',
+      swatch: 'linear-gradient(135deg, #f7f4ed 46%, #e23d28 54%)',
+      trait: 'Balanced speed & value (1.0×).'
+    },
+    ogon: {
+      id: 'ogon',
+      name: 'Ogon Gold',
+      cost: 180,
+      mult: 1.5,
+      baseColor: '#f7c844',
+      patchColor: '#ffe785',
+      sumiColor: null,
+      finColor: 'rgba(255, 224, 118, 0.65)',
+      swatch: 'linear-gradient(135deg, #ffe785, #d49617)',
+      trait: '1.5× value & magnetic pellet pull.'
+    },
+    showa: {
+      id: 'showa',
+      name: 'Showa Tri-Color',
+      cost: 480,
+      mult: 2.2,
+      baseColor: '#f3f1ec',
+      patchColor: '#df3824',
+      sumiColor: '#1b2028',
+      finColor: 'rgba(220, 224, 230, 0.58)',
+      swatch: 'linear-gradient(135deg, #df3824 33%, #f3f1ec 34% 66%, #1b2028 67%)',
+      trait: '2.2× value & +35% faster Dash recharge.'
+    },
+    tancho: {
+      id: 'tancho',
+      name: 'Tancho Crown',
+      cost: 1100,
+      mult: 3.4,
+      baseColor: '#fcfbf8',
+      patchColor: '#e62c22',
+      sumiColor: null,
+      finColor: 'rgba(252, 251, 248, 0.66)',
+      swatch: 'radial-gradient(circle, #e62c22 36%, #fcfbf8 40%)',
+      trait: '3.4× value & +20% Golden Lotus spawn chance.'
+    },
+    asagi: {
+      id: 'asagi',
+      name: 'Asagi Indigo',
+      cost: 2400,
+      mult: 4.8,
+      baseColor: '#4c7cc9',
+      patchColor: '#e03e36',
+      sumiColor: '#254275',
+      finColor: 'rgba(232, 92, 84, 0.62)',
+      swatch: 'linear-gradient(135deg, #4c7cc9 52%, #e03e36 53%)',
+      trait: '4.8× value & +50% longer Combo timer.'
+    }
+  };
+  const VARIETY_KEYS = ['kohaku', 'ogon', 'showa', 'tancho', 'asagi'];
+
+  const MATURITY_TIERS = [
+    { name: 'Fry',      xp: 0,  scale: 0.68, mult: 1.0 },
+    { name: 'Juvenile', xp: 4,  scale: 0.80, mult: 1.45 },
+    { name: 'Adult',    xp: 10, scale: 0.92, mult: 2.1 },
+    { name: 'Champion', xp: 18, scale: 1.05, mult: 3.2 }
+  ];
+
+  const UPGRADES = [
+    {
+      id: 'autofeeder',
+      name: 'Auto-Feeder',
+      maxLvl: 5,
+      baseCost: 90,
+      scale: 2.0,
+      desc: '+2 max food items in pond & faster feeding spawn rate.'
+    },
+    {
+      id: 'shrines',
+      name: 'Lotus Shrines',
+      maxLvl: 3,
+      baseCost: 160,
+      scale: 2.4,
+      desc: 'Places sacred jade rings in the pond that block Heron strikes.'
+    },
+    {
+      id: 'goldenbait',
+      name: 'Golden Bait',
+      maxLvl: 5,
+      baseCost: 130,
+      scale: 2.1,
+      desc: '+25% Yen per pellet & spawns higher-grade river shrimp.'
+    },
+    {
+      id: 'swiftfins',
+      name: 'Swift Fins',
+      maxLvl: 5,
+      baseCost: 120,
+      scale: 2.0,
+      desc: '+25% Dash stamina capacity & faster boost regeneration.'
+    },
+    {
+      id: 'reputation',
+      name: 'Market Reputation',
+      maxLvl: 5,
+      baseCost: 200,
+      scale: 2.25,
+      desc: '+25% Harvest payout multiplier at the Market Pier.'
+    }
+  ];
+
+  // Market orders are generated from the breeds the player can actually field,
+  // so an order is never impossible. Each completed order raises the next one's
+  // size and bonus, which pushes players to risk a bigger school.
+  const ORDER_TITLES = [
+    'Tea House Order', 'Lantern Festival', 'Scholar Pond', 'Temple Garden',
+    'Moon Viewing', 'Merchant Guild', 'Imperial Tribute', 'Grand Sanctuary'
+  ];
+
+  /* =========================================================================
+     2. PERSISTENT SAVE STATE (Via Sandbox-Safe Storage Helpers)
+     ========================================================================= */
+  const SAVE_KEY = 'koi_sanctuary_save_v2';
+  const createDefaultSave = () => ({
+    yen: 0,
+    unlocked: ['kohaku'],
+    equipped: 'kohaku',
+    mixedSchool: false,
+    upgrades: { autofeeder: 0, shrines: 0, goldenbait: 0, swiftfins: 0, reputation: 0 },
+    mode: 'arcade',
+    touchStyle: 'joystick',
+    soundOn: true,
+    orderIdx: 0,
+    totalHarvested: 0,
+    firstHarvestTracked: false,
+    pid: Math.random().toString(36).slice(2, 10),
+    firstSeen: Date.now(),
+    sessions: 0,
+    obSteps: {}
+  });
+
+  function loadSave() {
+    const raw = safeStorageGet(SAVE_KEY, null);
+    const def = createDefaultSave();
+    if (!raw) return def;
+    try {
+      const p = JSON.parse(raw);
+      return {
+        ...def,
+        ...p,
+        upgrades: { ...def.upgrades, ...(p.upgrades || {}) },
+        obSteps: { ...(p.obSteps || {}) },
+        unlocked: Array.isArray(p.unlocked) && p.unlocked.length ? p.unlocked : ['kohaku']
+      };
+    } catch (_) {
+      return def;
+    }
+  }
+
+  let save = loadSave();
+  save.sessions = (save.sessions || 0) + 1;
+
+  // Writes are batched: passive income ticks every second and synchronous
+  // localStorage writes cause frame hitches on low-end phones.
+  let persistTimer = null;
+  function flushPersist() {
+    clearTimeout(persistTimer);
+    persistTimer = null;
+    try {
+      safeStorageSet(SAVE_KEY, JSON.stringify(save));
+    } catch (_) {}
+  }
+  function persist(immediate = false) {
+    if (immediate) { flushPersist(); return; }
+    if (!persistTimer) persistTimer = setTimeout(flushPersist, 1500);
+  }
+  flushPersist();
+  try {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flushPersist();
+    });
+    window.addEventListener('pagehide', flushPersist);
+  } catch (_) {}
+
+  /* =========================================================================
+     3. PROCEDURAL WEB AUDIO ENGINE
+     ========================================================================= */
+  const Sound = (() => {
+    let actx = null;
+    let master = null;
+    const SCALE = [293.66, 329.63, 369.99, 440.00, 493.88, 587.33, 659.25, 739.99, 880.00];
+
+    function unlock() {
+      if (!save.soundOn) return null;
+      try {
+        if (!actx) {
+          // iOS 17+: 'ambient' respects the silent switch and does not stop the player's music.
+          try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch (_) {}
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if (AC) {
+            actx = new AC();
+            const comp = actx.createDynamicsCompressor();
+            master = actx.createGain();
+            master.gain.value = 0.85;
+            master.connect(comp);
+            comp.connect(actx.destination);
+            // A silent one-sample buffer started inside the gesture unlocks older iOS Safari.
+            const b = actx.createBuffer(1, 1, 22050);
+            const src = actx.createBufferSource();
+            src.buffer = b;
+            src.connect(actx.destination);
+            src.start(0);
+          }
+        }
+        // 'interrupted' happens on iOS after calls or Siri.
+        if (actx && actx.state !== 'running') {
+          actx.resume().catch(() => {});
+        }
+      } catch (_) {}
+      return actx;
+    }
+
+    function plop(combo = 1, special = false) {
+      const c = unlock();
+      if (!c) return;
+      try {
+        const t = c.currentTime;
+        const osc = c.createOscillator();
+        const gain = c.createGain();
+        osc.type = special ? 'triangle' : 'sine';
+        const base = 270 + Math.min(combo, 12) * 34 + (special ? 130 : 0);
+        osc.frequency.setValueAtTime(base * 0.72, t);
+        osc.frequency.exponentialRampToValueAtTime(base * 1.5, t + 0.085);
+        gain.gain.setValueAtTime(0.001, t);
+        gain.gain.linearRampToValueAtTime(special ? 0.14 : 0.10, t + 0.012);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+        osc.connect(gain);
+        gain.connect(master || c.destination);
+        osc.start(t);
+        osc.stop(t + 0.16);
+      } catch (_) {}
+    }
+
+    function dash() {
+      const c = unlock();
+      if (!c) return;
+      try {
+        const t = c.currentTime;
+        const len = Math.floor(c.sampleRate * 0.16);
+        const buf = c.createBuffer(1, len, c.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.42));
+        }
+        const src = c.createBufferSource();
+        src.buffer = buf;
+        const filt = c.createBiquadFilter();
+        filt.type = 'bandpass';
+        filt.frequency.setValueAtTime(620, t);
+        filt.frequency.exponentialRampToValueAtTime(1180, t + 0.15);
+        const gain = c.createGain();
+        gain.gain.setValueAtTime(0.09, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+        src.connect(filt);
+        filt.connect(gain);
+        gain.connect(master || c.destination);
+        src.start(t);
+      } catch (_) {}
+    }
+
+    function kotoArpeggio(count = 4, offset = 0) {
+      const c = unlock();
+      if (!c) return;
+      try {
+        const now = c.currentTime;
+        for (let i = 0; i < count; i++) {
+          const freq = SCALE[(offset + i) % SCALE.length];
+          const t = now + i * 0.075;
+          const osc = c.createOscillator();
+          const gain = c.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, t);
+          gain.gain.setValueAtTime(0.001, t);
+          gain.gain.linearRampToValueAtTime(0.11, t + 0.012);
+          gain.gain.exponentialRampToValueAtTime(0.0008, t + 0.48);
+          osc.connect(gain);
+          gain.connect(master || c.destination);
+          osc.start(t);
+          osc.stop(t + 0.50);
+        }
+      } catch (_) {}
+    }
+
+    function turtleSnap() {
+      const c = unlock();
+      if (!c) return;
+      try {
+        const t = c.currentTime;
+        const osc = c.createOscillator();
+        const gain = c.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(165, t);
+        osc.frequency.exponentialRampToValueAtTime(52, t + 0.18);
+        gain.gain.setValueAtTime(0.14, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.20);
+        osc.connect(gain);
+        gain.connect(master || c.destination);
+        osc.start(t);
+        osc.stop(t + 0.21);
+      } catch (_) {}
+    }
+
+    function heronStrike() {
+      const c = unlock();
+      if (!c) return;
+      try {
+        const t = c.currentTime;
+        const len = Math.floor(c.sampleRate * 0.26);
+        const buf = c.createBuffer(1, len, c.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len * 0.34));
+        }
+        const src = c.createBufferSource();
+        src.buffer = buf;
+        const filt = c.createBiquadFilter();
+        filt.type = 'lowpass';
+        filt.frequency.setValueAtTime(540, t);
+        const gain = c.createGain();
+        gain.gain.setValueAtTime(0.18, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.26);
+        src.connect(filt);
+        filt.connect(gain);
+        gain.connect(master || c.destination);
+        src.start(t);
+      } catch (_) {}
+    }
+
+    function suspendIfHidden() {
+      try {
+        if (!actx) return;
+        if (document.visibilityState === 'hidden') actx.suspend().catch(() => {});
+        else if (save.soundOn) actx.resume().catch(() => {});
+      } catch (_) {}
+    }
+
+    return { unlock, plop, dash, kotoArpeggio, turtleSnap, heronStrike, suspendIfHidden };
+  })();
+
+  /* =========================================================================
+     4. CANVAS SETUP, RESPONSIVE WORLD SCALING & CACHED FLOOR LAYER
+     ========================================================================= */
+  const canvas = document.getElementById('pond-canvas');
+  const ctx = canvas.getContext('2d', { alpha: false });
+  const floorCanvas = document.createElement('canvas');
+  const floorCtx = floorCanvas.getContext('2d', { alpha: false });
+
+  let W = 960;
+  let H = 640;
+  let dpr = 1;
+  let worldScale = 1.0;
+  let isTouchDevice = false;
+
+  // River pebbles & Market Pier geometry
+  let riverStones = [];
+  const pier = {
+    x: 760,
+    y: 74,
+    w: 170,
+    h: 92,
+    cx: 845,
+    cy: 120,
+    basketX: 830,
+    basketY: 134,
+    radius: 62
+  };
+
+  function rebuildFloorCache() {
+    const fw = Math.max(1, Math.round(W * dpr));
+    const fh = Math.max(1, Math.round(H * dpr));
+    floorCanvas.width = fw;
+    floorCanvas.height = fh;
+
+    floorCtx.save();
+    floorCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // Layer 1: Low-contrast deep Sumi-e pond gradient (#07131a to #0a1c24)
+    const cx = W * 0.5;
+    const cy = H * 0.52;
+    const maxR = Math.max(200, Math.hypot(W, H) * 0.65);
+    const grad = floorCtx.createRadialGradient(cx, cy, 20, cx, cy, maxR);
+    grad.addColorStop(0, '#0b2029');
+    grad.addColorStop(0.55, '#091922');
+    grad.addColorStop(1, '#07131a');
+    floorCtx.fillStyle = grad;
+    floorCtx.fillRect(0, 0, W, H);
+
+    // Subtle river stones on the pond floor
+    const stoneCount = Math.max(14, Math.min(34, Math.floor((W * H) / 36000)));
+    riverStones = [];
+    for (let i = 0; i < stoneCount; i++) {
+      const sx = (0.06 + ((i * 73) % 89) / 100) * W;
+      const sy = (0.08 + ((i * 47 + 19) % 85) / 100) * H;
+      const rx = (18 + (i % 5) * 9) * worldScale;
+      const ry = rx * (0.62 + (i % 3) * 0.12);
+      const rot = (i * 1.1) % Math.PI;
+      riverStones.push({ x: sx, y: sy, rx, ry, rot });
+
+      floorCtx.save();
+      floorCtx.translate(sx, sy);
+      floorCtx.rotate(rot);
+      floorCtx.fillStyle = i % 2 === 0 ? 'rgba(5, 13, 18, 0.55)' : 'rgba(13, 33, 43, 0.42)';
+      floorCtx.beginPath();
+      floorCtx.ellipse(0, 0, rx, ry, 0, 0, TAU);
+      floorCtx.fill();
+      floorCtx.strokeStyle = 'rgba(18, 44, 56, 0.35)';
+      floorCtx.lineWidth = 1.2;
+      floorCtx.stroke();
+      floorCtx.restore();
+    }
+
+    // Subtle Sumi-e pond bank vignette along edges
+    floorCtx.strokeStyle = 'rgba(16, 40, 52, 0.55)';
+    floorCtx.lineWidth = 10 * worldScale;
+    floorCtx.strokeRect(0, 0, W, H);
+
+    floorCtx.restore();
+  }
+
+  function layoutPier() {
+    const isMobile = W <= 680;
+    const pw = (isMobile ? 148 : 182) * worldScale;
+    const ph = (isMobile ? 84 : 98) * worldScale;
+    const topOffset = isMobile ? 64 : 62;
+    pier.w = pw;
+    pier.h = ph;
+    pier.x = Math.max(20, W - pw - 10);
+    pier.y = Math.min(H - ph - 40, topOffset);
+    pier.cx = pier.x + pw * 0.5;
+    pier.cy = pier.y + ph * 0.5;
+    pier.basketX = pier.x + pw * 0.42;
+    pier.basketY = pier.y + ph * 0.66;
+    pier.radius = Math.max(46, 62 * worldScale);
+  }
+
+  function resize() {
+    const rawW = window.innerWidth || (document.documentElement && document.documentElement.clientWidth) || 960;
+    const rawH = window.innerHeight || (document.documentElement && document.documentElement.clientHeight) || 640;
+    W = Math.max(320, rawW);
+    H = Math.max(240, rawH);
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    canvas.width = Math.max(1, Math.round(W * dpr));
+    canvas.height = Math.max(1, Math.round(H * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    worldScale = Math.max(0.64, Math.min(1.16, Math.min(W, H) / 760));
+    layoutPier();
+    rebuildFloorCache();
+    rebuildLiliesAndShrines();
+
+    if (leadKoi) {
+      leadKoi.x = Math.max(30, Math.min(W - 30, leadKoi.x));
+      leadKoi.y = Math.max(40, Math.min(H - 30, leadKoi.y));
+    }
+  }
+
+  /* =========================================================================
+     5. GAME STATE & ENTITIES
+     ========================================================================= */
+  let state = 'welcome'; // 'welcome' | 'playing' | 'shop' | 'settings'
+  let totalTime = 0;
+  let lastTime = performance.now();
+
+  let leadKoi = null;
+  const school = [];
+  const foods = [];
+  const turtles = [];
+  const herons = [];
+  const lilies = [];
+  const shrines = [];
+  const ripples = [];
+  const particles = [];
+  const popups = [];
+  const coinFlights = [];
+
+  // Progression & Combo State
+  let growthXp = 0;
+  let growthNeeded = 85;
+  let stamina = 100;
+  let isDashing = false;
+  let dashDashSoundTimer = 0;
+  let comboHits = 0;
+  let comboMult = 1.0;
+  let comboTimer = 0;
+  let passiveAccum = 0;
+  let foodSpawnTimer = 0;
+  let hazardSpawnTimer = 4.0;
+  let harvestCharge = 0; // 0..1 when inside Market Pier
+  let leadInvuln = 0;
+  let shakeTime = 0;
+  let shakeMag = 0;
+  let firstRunMovedDist = 0;
+  let hintDismissed = false;
+  let runTime = 0;          // seconds of active play since the pond was entered
+  let hitStop = 0;          // brief slow-motion on impactful hits
+  let shakeDur = 0.25;
+  let inputMode = 'mouse';  // 'mouse' | 'touch', follows the last real pointer used
+  const isFirstRun = () => !save.firstHarvestTracked;
+
+  // First-run coach: eat -> grow -> sell. Drawn in-world, never as a modal.
+  const coach = { step: 'eat', hazardShown: false, hazardLabel: null, pierPulse: 0 };
+
+  // Pilot Analytics Session Trackers
+  let sessionStarted = false;
+  let sessionStartMs = 0;
+  let activePlaySec = 0;
+  let activeMinutesPinged = 0;
+
+  function deviceType() {
+    if (inputMode === 'touch') return 'mobile';
+    try {
+      if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return 'mobile';
+    } catch (_) {}
+    return 'desktop';
+  }
+  function bucketSchool(n) {
+    return n <= 0 ? '0' : n === 1 ? '1' : n <= 3 ? '2-3' : n <= 6 ? '4-6' : '7+';
+  }
+  function bucketSec(sec) {
+    return sec < 30 ? '<30s' : sec < 45 ? '30-45s' : sec < 75 ? '45-75s' : sec < 120 ? '75-120s' : '120s+';
+  }
+  function dayBucket() {
+    const d = Math.floor((Date.now() - (save.firstSeen || Date.now())) / 86400000);
+    return d <= 0 ? 'd0' : d === 1 ? 'd1' : d <= 3 ? 'd2-3' : d <= 7 ? 'd4-7' : 'd8+';
+  }
+  function sessionBucket() {
+    const n = save.sessions || 1;
+    return n === 1 ? '1' : n === 2 ? '2' : n <= 5 ? '3-5' : '6+';
+  }
+  function refBucket() {
+    const aliases = { wa: 'whatsapp', li: 'linkedin', dc: 'discord', tw: 'twitter', x: 'twitter', ig: 'instagram', tg: 'telegram', rd: 'reddit' };
+    const tag = (safeGetQueryParam('ref') || safeGetQueryParam('utm_source') || '').toLowerCase().trim();
+    if (tag) {
+      if (aliases[tag]) return aliases[tag];
+      for (const v of Object.values(aliases)) if (tag.includes(v)) return v;
+      return 'other';
+    }
+    let r = '';
+    try { r = (document.referrer || '').toLowerCase(); } catch (_) {}
+    if (!r) return 'direct';
+    if (r.includes('whatsapp')) return 'whatsapp';
+    if (r.includes('linkedin') || r.includes('lnkd.in')) return 'linkedin';
+    if (r.includes('discord')) return 'discord';
+    if (r.includes('t.co') || r.includes('twitter') || r.includes('x.com')) return 'twitter';
+    if (r.includes('reddit')) return 'reddit';
+    if (r.includes('google.')) return 'search';
+    return 'other';
+  }
+  const sessionRef = refBucket();
+
+  // Low-cardinality context added to every event.
+  KoiAnalytics.setContext(() => ({
+    device: deviceType(),
+    mode: save.mode,
+    returning: (save.sessions || 1) > 1,
+    day_bucket: dayBucket(),
+    session_bucket: sessionBucket(),
+    build: BUILD
+  }));
+
+  function trackOnboarding(step) {
+    if (save.firstHarvestTracked || save.obSteps[step]) return;
+    save.obSteps[step] = true;
+    persist();
+    KoiAnalytics.track('ob_' + step);
+  }
+
+  function fireGameStartOnce() {
+    if (sessionStarted) return;
+    sessionStarted = true;
+    sessionStartMs = performance.now();
+    KoiAnalytics.track('game_start', {
+      ref: sessionRef,
+      first_run: isFirstRun(),
+      orientation: W >= H ? 'landscape' : 'portrait'
+    });
+  }
+
+  // Input State (Keyboard, Pointer & Floating Touch Joystick)
+  const keys = new Set();
+  const pointer = { x: W * 0.5, y: H * 0.5, active: false, down: false };
+  const joystick = {
+    active: false,
+    id: null,
+    originX: 0,
+    originY: 0,
+    currX: 0,
+    currY: 0,
+    dx: 0,
+    dy: 0,
+    mag: 0
+  };
+  let touchDashHeld = false;
+
+  /* =========================================================================
+     6. ECONOMY, PERKS & MARKET ORDER HELPERS
+     ========================================================================= */
+  function hasTrait(varietyId) {
+    if (save.mixedSchool) return save.unlocked.includes(varietyId);
+    return save.equipped === varietyId;
+  }
+
+  function getActiveVariety(index = 0) {
+    if (save.mixedSchool && save.unlocked.length > 0) {
+      return save.unlocked[index % save.unlocked.length];
+    }
+    return VARIETIES[save.equipped] ? save.equipped : 'kohaku';
+  }
+
+  function getMaxStamina() {
+    return 100 * (1 + (save.upgrades.swiftfins || 0) * 0.25);
+  }
+
+  function getComboWindow() {
+    return 4.0 * (hasTrait('asagi') ? 1.5 : 1.0);
+  }
+
+  function getMaturityTier(xp) {
+    let tier = MATURITY_TIERS[0];
+    for (let i = MATURITY_TIERS.length - 1; i >= 0; i--) {
+      if (xp >= MATURITY_TIERS[i].xp) {
+        tier = MATURITY_TIERS[i];
+        break;
+      }
+    }
+    return tier;
+  }
+
+  function availableVarieties() {
+    if (save.mixedSchool && save.unlocked.length > 0) return save.unlocked.slice();
+    return [VARIETIES[save.equipped] ? save.equipped : 'kohaku'];
+  }
+
+  let cachedOrderKey = '';
+  let cachedOrder = null;
+  function getCurrentOrder() {
+    const avail = availableVarieties();
+    const idx = save.orderIdx || 0;
+    const key = idx + '|' + avail.join(',');
+    if (key === cachedOrderKey && cachedOrder) return cachedOrder;
+
+    const tier = Math.min(4, Math.floor(idx / 2));
+    let reqs;
+    let bonus;
+    if (avail.length >= 2 && idx % 2 === 1) {
+      // Mixed-school order: two breeds, rotating through what is unlocked.
+      const a = avail[idx % avail.length];
+      const b = avail[(idx + 1) % avail.length];
+      reqs = [
+        { variety: a, count: 1 + Math.floor(tier / 2) },
+        { variety: b, count: 1 + Math.ceil(tier / 2) }
+      ];
+      bonus = 0.6 + tier * 0.12;
+    } else {
+      // In a mixed school the breeds rotate, so a single-breed order needs a bigger school.
+      const v = avail[idx % avail.length];
+      reqs = [{ variety: v, count: 2 + tier }];
+      bonus = 0.5 + tier * 0.1;
+    }
+    cachedOrderKey = key;
+    cachedOrder = { title: ORDER_TITLES[idx % ORDER_TITLES.length], bonus, reqs, tier };
+    return cachedOrder;
+  }
+
+  function evaluateOrderProgress() {
+    const order = getCurrentOrder();
+    const counts = {};
+    for (const fk of school) {
+      counts[fk.variety] = (counts[fk.variety] || 0) + 1;
+    }
+    let allMet = true;
+    const details = order.reqs.map(r => {
+      const have = counts[r.variety] || 0;
+      const met = have >= r.count;
+      if (!met) allMet = false;
+      return { variety: r.variety, need: r.count, have, met };
+    });
+    return { order, details, complete: allMet && school.length > 0 };
+  }
+
+  function computeHarvestBreakdown() {
+    if (school.length === 0) return { base: 0, bonus: 0, total: 0, orderComplete: false };
+    const repMult = 1 + (save.upgrades.reputation || 0) * 0.25;
+    const modeMult = save.mode === 'arcade' ? 1.5 : 1.0;
+    const schoolScaleBonus = 1 + school.length * 0.10;
+    let raw = 0;
+    for (const fk of school) {
+      const vMult = VARIETIES[fk.variety].mult;
+      const tier = getMaturityTier(fk.xp);
+      raw += 28 * vMult * tier.mult;
+    }
+    const base = Math.round(raw * schoolScaleBonus * repMult * modeMult);
+    const ord = evaluateOrderProgress();
+    const bonus = ord.complete ? Math.round(base * ord.order.bonus) : 0;
+    return { base, bonus, total: base + bonus, orderComplete: ord.complete };
+  }
+
+  function computePassiveRate() {
+    if (school.length === 0) return 0;
+    const modeMult = save.mode === 'arcade' ? 1.5 : 1.0;
+    let sum = 0;
+    for (const fk of school) {
+      const tier = getMaturityTier(fk.xp);
+      sum += 0.8 * VARIETIES[fk.variety].mult * tier.mult;
+    }
+    return Math.round(sum * modeMult);
+  }
+
+  function canAffordAnyShopItem() {
+    for (const key of VARIETY_KEYS) {
+      if (!save.unlocked.includes(key) && save.yen >= VARIETIES[key].cost) return true;
+    }
+    for (const up of UPGRADES) {
+      const lvl = save.upgrades[up.id] || 0;
+      if (lvl < up.maxLvl) {
+        const cost = Math.round(up.baseCost * Math.pow(up.scale, lvl));
+        if (save.yen >= cost) return true;
+      }
+    }
+    return false;
+  }
+
+  /* =========================================================================
+     7. 14-NODE IK KOI FACTORY & WORLD ENTITY SPAWNERS
+     ========================================================================= */
+  function createIKKoi(variety, x, y, angle, isLead = false, slotIndex = 0) {
+    const tier = isLead ? MATURITY_TIERS[2] : MATURITY_TIERS[0];
+    const baseLen = (isLead ? 74 : 58) * worldScale * (isLead ? 1.0 : tier.scale);
+    const segLen = baseLen / (IK_NODES - 1);
+    const nodes = [];
+    for (let i = 0; i < IK_NODES; i++) {
+      nodes.push({
+        x: x - Math.cos(angle) * i * segLen,
+        y: y - Math.sin(angle) * i * segLen
+      });
+    }
+
+    // Organic teardrop / V-formation slot for autonomous boid schooling
+    const ring = Math.floor(slotIndex / 3) + 1;
+    const side = slotIndex % 3 === 0 ? 0 : (slotIndex % 3 === 1 ? -1 : 1);
+    return {
+      variety,
+      x,
+      y,
+      vx: Math.cos(angle) * 90,
+      vy: Math.sin(angle) * 90,
+      angle,
+      speed: 110,
+      phase: Math.random() * TAU,
+      seed: Math.random() * 100,
+      isLead,
+      xp: isLead ? 10 : 0,
+      scale: tier.scale,
+      chompTimer: 0,
+      nodes,
+      slotDist: (52 + ring * 38) * worldScale,
+      slotAngle: side * (0.44 + ring * 0.08),
+      wanderPhase: Math.random() * TAU
+    };
+  }
+
+  function addRipple(x, y, maxR = 54, color = 'rgba(215, 242, 255, 0.42)', lineWidth = 1.6) {
+    if (ripples.length > 26) ripples.shift();
+    ripples.push({ x, y, r: 4, maxR: maxR * worldScale, life: 1.0, color, lineWidth });
+  }
+
+  function addParticles(x, y, count, color, speed = 75, size = 2.6) {
+    for (let i = 0; i < count; i++) {
+      if (particles.length > 140) particles.shift();
+      const a = Math.random() * TAU;
+      const spd = (0.3 + Math.random() * 0.7) * speed * worldScale;
+      particles.push({
+        x, y,
+        vx: Math.cos(a) * spd,
+        vy: Math.sin(a) * spd,
+        life: 1.0,
+        color,
+        size: size * worldScale
+      });
+    }
+  }
+
+  function addPopup(x, y, text, color = '#ffd269', big = false) {
+    if (popups.length > 20) popups.shift();
+    popups.push({ x, y, text, color, life: 1.0, vy: (big ? -34 : -26) * worldScale, big });
+  }
+
+  function spawnCoinFlight(startX, startY, delay = 0) {
+    coinFlights.push({
+      x: startX,
+      y: startY,
+      sx: startX,
+      sy: startY,
+      tx: 52,
+      ty: 24,
+      t: -delay
+    });
+  }
+
+  function rebuildLiliesAndShrines() {
+    lilies.length = 0;
+    const spots = [
+      { fx: 0.14, fy: 0.22, r: 46, notch: 0.5,  lotus: '#f9a8d4' },
+      { fx: 0.22, fy: 0.15, r: 32, notch: 2.2,  lotus: null },
+      { fx: 0.16, fy: 0.80, r: 48, notch: -1.1, lotus: '#fef3c7' },
+      { fx: 0.84, fy: 0.78, r: 44, notch: 1.4,  lotus: '#fbcfe8' },
+      { fx: 0.76, fy: 0.86, r: 30, notch: 2.9,  lotus: null },
+      { fx: 0.52, fy: 0.16, r: 34, notch: -0.4, lotus: null }
+    ];
+    for (let i = 0; i < spots.length; i++) {
+      const s = spots[i];
+      const lx = s.fx * W;
+      const ly = s.fy * H;
+      // Keep clear of Market Pier
+      if (Math.hypot(lx - pier.cx, ly - pier.cy) < pier.radius + 60) continue;
+      lilies.push({
+        x: lx,
+        y: ly,
+        r: s.r * worldScale,
+        notch: s.notch,
+        lotus: s.lotus,
+        phase: i * 1.15,
+        alpha: 0.92
+      });
+    }
+
+    shrines.length = 0;
+    const shrineCount = save.upgrades.shrines || 0;
+    const shrineSpots = [
+      { fx: 0.34, fy: 0.48 },
+      { fx: 0.65, fy: 0.64 },
+      { fx: 0.48, fy: 0.28 }
+    ];
+    for (let i = 0; i < Math.min(shrineCount, shrineSpots.length); i++) {
+      shrines.push({
+        x: shrineSpots[i].fx * W,
+        y: shrineSpots[i].fy * H,
+        r: 76 * worldScale,
+        phase: i * 1.7
+      });
+    }
+  }
+
+  function spawnFood(forcedKind = null, atX = null, atY = null) {
+    const pad = 42 * worldScale;
+    let fx = atX !== null ? atX : pad + Math.random() * Math.max(40, W - pad * 2);
+    let fy = atY !== null ? atY : pad + 40 + Math.random() * Math.max(40, H - pad * 2 - 40);
+
+    // Keep food out of the sell zone so foraging never triggers an accidental sale.
+    if (Math.hypot(fx - pier.cx, fy - pier.cy) < pier.radius + 24 ||
+        Math.hypot(fx - pier.basketX, fy - pier.basketY) < pier.radius * 1.5) {
+      fx = W * 0.35 + (Math.random() - 0.5) * 120;
+      fy = H * 0.55 + (Math.random() - 0.5) * 120;
+    }
+
+    let kind = forcedKind;
+    if (!kind) {
+      const lotusChance = 0.05 + (hasTrait('tancho') ? 0.08 : 0) + (save.upgrades.goldenbait || 0) * 0.015;
+      const shrimpChance = 0.18 + (save.upgrades.goldenbait || 0) * 0.05;
+      const roll = Math.random();
+      if (roll < lotusChance) kind = 'lotus';
+      else if (roll < lotusChance + 0.08) kind = 'dragonfly';
+      else if (roll < lotusChance + 0.08 + shrimpChance) kind = 'shrimp';
+      else kind = 'pellet';
+    }
+
+    const ang = Math.random() * TAU;
+    foods.push({
+      kind,
+      x: fx,
+      y: fy,
+      vx: kind === 'dragonfly' ? Math.cos(ang) * 44 * worldScale : 0,
+      vy: kind === 'dragonfly' ? Math.sin(ang) * 44 * worldScale : 0,
+      r: (kind === 'lotus' ? 11 : kind === 'dragonfly' ? 9 : 7) * worldScale,
+      life: kind === 'dragonfly' ? 16 : 26,
+      phase: Math.random() * TAU
+    });
+  }
+
+  function spawnTurtle() {
+    const edge = Math.floor(Math.random() * 4);
+    let x, y, ang;
+    if (edge === 0) { x = 36; y = H * (0.25 + Math.random() * 0.55); ang = 0; }
+    else if (edge === 1) { x = W - 36; y = H * (0.35 + Math.random() * 0.5); ang = Math.PI; }
+    else if (edge === 2) { x = W * (0.2 + Math.random() * 0.5); y = 68; ang = Math.PI * 0.5; }
+    else { x = W * (0.2 + Math.random() * 0.6); y = H - 36; ang = -Math.PI * 0.5; }
+
+    if (leadKoi && Math.hypot(x - leadKoi.x, y - leadKoi.y) < 160 * worldScale) return;
+
+    turtles.push({
+      x,
+      y,
+      angle: ang,
+      r: 23 * worldScale,
+      windupTime: isFirstRun() ? 0.95 : 0.75,
+      swimPhase: Math.random() * TAU,
+      aiState: 'patrol', // 'patrol' | 'windup' | 'lunge' | 'recovery'
+      stateTimer: 2.2 + Math.random() * 2.0,
+      lungeVx: 0,
+      lungeVy: 0,
+      hitCooldown: 0,
+      wakeTimer: 0.35
+    });
+  }
+
+  function spawnHeron() {
+    // Pick a point near player or school, avoiding Market Pier & Lotus Shrines
+    const targetFish = school.length > 0 && Math.random() < 0.55
+      ? school[Math.floor(Math.random() * school.length)]
+      : leadKoi;
+    if (!targetFish) return;
+
+    const hx = Math.max(60, Math.min(W - 60, targetFish.x + (Math.random() - 0.5) * 130 * worldScale));
+    const hy = Math.max(85, Math.min(H - 60, targetFish.y + (Math.random() - 0.5) * 130 * worldScale));
+
+    if (Math.hypot(hx - pier.cx, hy - pier.cy) < pier.radius + 55 * worldScale) return;
+    for (const sh of shrines) {
+      if (Math.hypot(hx - sh.x, hy - sh.y) < sh.r + 24 * worldScale) return;
+    }
+
+    // Telegraph shortens slightly as the school grows, but never below 1.15 s.
+    const tele = isFirstRun() && !coach.hazardShown
+      ? 1.9
+      : Math.max(1.15, 1.5 - school.length * 0.03);
+    herons.push({
+      x: hx,
+      y: hy,
+      r: 48 * worldScale,
+      timer: tele,
+      maxTimer: tele,
+      struck: false,
+      flashLife: 0,
+      wingAngle: Math.atan2(hy - H * 0.5, hx - W * 0.5)
+    });
+  }
+
+  function initPond() {
+    leadKoi = createIKKoi(getActiveVariety(0), W * 0.44, H * 0.54, -0.35, true, 0);
+    school.length = 0;
+    foods.length = 0;
+    turtles.length = 0;
+    herons.length = 0;
+    ripples.length = 0;
+    particles.length = 0;
+    popups.length = 0;
+    coinFlights.length = 0;
+
+    growthXp = 0;
+    growthNeeded = 80;
+    stamina = getMaxStamina();
+    comboHits = 0;
+    comboMult = 1.0;
+    comboTimer = 0;
+    harvestCharge = 0;
+    leadInvuln = 1.2;
+
+    runTime = 0;
+    coach.step = 'eat';
+    coach.hazardShown = false;
+    coach.hazardLabel = null;
+    hazardSpawnTimer = 4.0;
+
+    // A short trail of pellets curving away from the start teaches "swim into food".
+    if (isFirstRun()) {
+      for (let i = 0; i < 4; i++) {
+        const ang = leadKoi.angle + 0.35 * i;
+        const d = (70 + i * 62) * worldScale;
+        const tx = Math.max(50, Math.min(W - 50, leadKoi.x + Math.cos(ang) * d));
+        const ty = Math.max(90, Math.min(H - 50, leadKoi.y + Math.sin(ang) * d));
+        spawnFood('pellet', tx, ty);
+      }
+    }
+    const initialFood = (isFirstRun() ? 3 : 6) + (save.upgrades.autofeeder || 0) * 2;
+    for (let i = 0; i < initialFood; i++) spawnFood();
+    // Hazards are introduced by update() after a grace period.
+    addRipple(leadKoi.x, leadKoi.y, 70);
+  }
+
+  function addSchoolKoi(forcedVariety = null) {
+    const vKey = forcedVariety || getActiveVariety(school.length + 1);
+    const spawnAngle = leadKoi.angle + (Math.random() - 0.5) * 0.8;
+    const sx = leadKoi.x - Math.cos(leadKoi.angle) * 34 * worldScale;
+    const sy = leadKoi.y - Math.sin(leadKoi.angle) * 34 * worldScale;
+    const member = createIKKoi(vKey, sx, sy, spawnAngle, false, school.length);
+    school.push(member);
+    addRipple(sx, sy, 52, 'rgba(94, 234, 212, 0.55)', 2.0);
+    addPopup(leadKoi.x, leadKoi.y - 24 * worldScale, `+1 ${VARIETIES[vKey].name.toUpperCase()}`, '#5eead4', true);
+    Sound.kotoArpeggio(3, 2);
+  }
+
+  /* =========================================================================
+     8. INVERSE KINEMATICS (IK) SPINE SOLVER & BOID SCHOOLING UPDATE
+     ========================================================================= */
+  function updateIKChain(koi, dt, speedRatio) {
+    const tier = koi.isLead ? MATURITY_TIERS[2] : getMaturityTier(koi.xp);
+    koi.scale += (tier.scale - koi.scale) * Math.min(1, dt * 3.5);
+    const fishLen = (koi.isLead ? 74 : 58) * worldScale * (koi.isLead ? 1.0 : koi.scale);
+    const segLen = fishLen / (IK_NODES - 1);
+
+    // Head node tracks koi position
+    koi.nodes[0].x = koi.x;
+    koi.nodes[0].y = koi.y;
+
+    const hz = (1.6 + speedRatio * 1.45);
+    koi.phase += TAU * hz * dt;
+
+    for (let i = 1; i < IK_NODES; i++) {
+      const prev = koi.nodes[i - 1];
+      const curr = koi.nodes[i];
+      let dx = curr.x - prev.x;
+      let dy = curr.y - prev.y;
+      const dist = Math.hypot(dx, dy) || 0.001;
+      dx /= dist;
+      dy /= dist;
+
+      // Subtle speed-scaled sinusoidal swim wave along back 65% of body
+      const tNorm = i / (IK_NODES - 1);
+      const waveMask = tNorm > 0.32 ? Math.pow((tNorm - 0.32) / 0.68, 1.35) : 0;
+      const swimOffset = Math.sin(koi.phase - tNorm * 4.4) * segLen * 0.24 * waveMask * (0.45 + speedRatio * 0.65);
+
+      const perpX = -dy;
+      const perpY = dx;
+      curr.x = prev.x + dx * segLen + perpX * swimOffset * 0.25;
+      curr.y = prev.y + dy * segLen + perpY * swimOffset * 0.25;
+    }
+
+    if (koi.chompTimer > 0) {
+      koi.chompTimer = Math.max(0, koi.chompTimer - dt * 4.5);
+    }
+  }
+
+  function executeHarvest() {
+    if (school.length === 0) return;
+    const count = school.length;
+    const bd = computeHarvestBreakdown();
+
+    const orderTier = getCurrentOrder().tier;
+    save.yen += bd.total;
+    save.totalHarvested += count;
+    if (bd.orderComplete) {
+      save.orderIdx = (save.orderIdx || 0) + 1;
+    }
+
+    // Pilot Analytics: lifetime first_harvest + every harvest
+    if (!save.firstHarvestTracked) {
+      save.firstHarvestTracked = true;
+      const elapsedSec = sessionStartMs ? Math.round((performance.now() - sessionStartMs) / 100) / 10 : 0;
+      KoiAnalytics.track('first_harvest', {
+        ttfh_sec: elapsedSec,
+        ttfh_bucket: bucketSec(elapsedSec),
+        school_size: count,
+        school_bucket: bucketSchool(count),
+        yen: bd.total
+      });
+      coach.step = 'done';
+      showToast('First harvest!', 'Bigger schools sell for more. Market orders pay a bonus.');
+    }
+    KoiAnalytics.track('harvest', {
+      school_size: count,
+      school_bucket: bucketSchool(count),
+      yen: bd.total,
+      order_done: bd.orderComplete,
+      order_tier: orderTier
+    });
+
+    persist(true);
+
+    // Launch animated coins from the Harvest Basket up to the Yen HUD counter
+    const coinCount = Math.min(12, Math.max(4, count + 2));
+    for (let i = 0; i < coinCount; i++) {
+      spawnCoinFlight(
+        pier.basketX + (Math.random() - 0.5) * 26,
+        pier.basketY + (Math.random() - 0.5) * 18,
+        i * 0.045
+      );
+    }
+
+    addRipple(pier.basketX, pier.basketY, 96, 'rgba(255, 210, 105, 0.85)', 2.6);
+    addParticles(pier.basketX, pier.basketY, 22, '#ffd269', 110, 3.2);
+    addPopup(
+      pier.basketX,
+      pier.basketY - 26 * worldScale,
+      bd.orderComplete ? `ORDER COMPLETE! +¥${bd.total}` : `HARVESTED +¥${bd.total}`,
+      bd.orderComplete ? '#5eead4' : '#ffd269',
+      true
+    );
+
+    Sound.kotoArpeggio(bd.orderComplete ? 6 : 4, bd.orderComplete ? 1 : 0);
+    school.length = 0;
+    harvestCharge = 0;
+    triggerYenPop();
+    syncHUD();
+  }
+
+  function update(dt) {
+    if (state !== 'playing' || !leadKoi) return;
+
+    // Pilot Analytics: 60s visible active play session_ping
+    if (safeIsVisible()) {
+      activePlaySec += dt;
+      if (activePlaySec >= 60) {
+        activePlaySec -= 60;
+        activeMinutesPinged++;
+        KoiAnalytics.track('session_ping', {
+          minute: activeMinutesPinged,
+          school_bucket: bucketSchool(school.length)
+        });
+      }
+    }
+
+    runTime += dt;
+    if (leadInvuln > 0) leadInvuln = Math.max(0, leadInvuln - dt);
+
+    // Combo decay
+    if (comboTimer > 0) {
+      comboTimer -= dt;
+      if (comboTimer <= 0) {
+        comboHits = 0;
+        comboMult = 1.0;
+      }
+    }
+
+    // Passive sanctuary income from trailing school
+    if (school.length > 0) {
+      passiveAccum += dt;
+      if (passiveAccum >= 1.0) {
+        passiveAccum -= 1.0;
+        const rate = computePassiveRate();
+        if (rate > 0) {
+          save.yen += rate;
+          persist();
+        }
+      }
+    }
+
+    // 1. Lead Koi Steering (Keyboard > Floating Virtual Joystick > Direct Follow)
+    let desiredAngle = null;
+    let kx = 0, ky = 0;
+    if (keys.has('arrowleft') || keys.has('a')) kx -= 1;
+    if (keys.has('arrowright') || keys.has('d')) kx += 1;
+    if (keys.has('arrowup') || keys.has('w')) ky -= 1;
+    if (keys.has('arrowdown') || keys.has('s')) ky += 1;
+
+    if (kx !== 0 || ky !== 0) {
+      desiredAngle = Math.atan2(ky, kx);
+    } else if (joystick.active && joystick.mag > 0.12) {
+      desiredAngle = Math.atan2(joystick.dy, joystick.dx);
+    } else if ((inputMode === 'mouse' || save.touchStyle === 'follow') && pointer.active) {
+      const dx = pointer.x - leadKoi.x;
+      const dy = pointer.y - leadKoi.y;
+      if (Math.hypot(dx, dy) > 16 * worldScale) {
+        desiredAngle = Math.atan2(dy, dx);
+      }
+    }
+
+    if (desiredAngle !== null) {
+      let diff = desiredAngle - leadKoi.angle;
+      while (diff > Math.PI) diff -= TAU;
+      while (diff < -Math.PI) diff += TAU;
+      const turnSpeed = 5.4;
+      leadKoi.angle += Math.max(-turnSpeed * dt, Math.min(turnSpeed * dt, diff * 7.5 * dt));
+    }
+
+    // Dash & Stamina
+    const maxStam = getMaxStamina();
+    const wantsDash = keys.has(' ') || keys.has('shift') || touchDashHeld || (inputMode === 'mouse' && pointer.down);
+    if (wantsDash && stamina > 5) {
+      isDashing = true;
+      stamina = Math.max(0, stamina - 44 * dt);
+      dashDashSoundTimer -= dt;
+      if (dashDashSoundTimer <= 0) {
+        dashDashSoundTimer = 0.25;
+        Sound.dash();
+        addRipple(leadKoi.x, leadKoi.y, 44, 'rgba(94, 234, 212, 0.45)', 1.6);
+      }
+    } else {
+      isDashing = false;
+      const regenMult = (1 + (save.upgrades.swiftfins || 0) * 0.25) * (hasTrait('showa') ? 1.35 : 1.0);
+      stamina = Math.min(maxStam, stamina + 24 * regenMult * dt);
+    }
+
+    const baseSpeed = 148 * worldScale;
+    const targetSpeed = isDashing ? baseSpeed * 1.68 : baseSpeed;
+    leadKoi.speed += (targetSpeed - leadKoi.speed) * Math.min(1, dt * 7);
+
+    const step = leadKoi.speed * dt;
+    leadKoi.x += Math.cos(leadKoi.angle) * step;
+    leadKoi.y += Math.sin(leadKoi.angle) * step;
+
+    if (!hintDismissed && (desiredAngle !== null || isDashing)) {
+      fireGameStartOnce();
+      trackOnboarding('first_move');
+      firstRunMovedDist += step;
+      if (firstRunMovedDist > 150 * worldScale) {
+        hintDismissed = true;
+        document.getElementById('control-hint').classList.remove('show');
+      }
+    }
+
+    // Smooth Pond Boundary Steering / Zen Wrap
+    const margin = 24 * worldScale;
+    const topMargin = 48;
+    if (save.mode === 'zen') {
+      if (leadKoi.x < 0) leadKoi.x += W;
+      else if (leadKoi.x > W) leadKoi.x -= W;
+      if (leadKoi.y < 0) leadKoi.y += H;
+      else if (leadKoi.y > H) leadKoi.y -= H;
+    } else {
+      if (leadKoi.x < margin) { leadKoi.x = margin; leadKoi.angle = Math.atan2(Math.sin(leadKoi.angle), Math.abs(Math.cos(leadKoi.angle))); }
+      if (leadKoi.x > W - margin) { leadKoi.x = W - margin; leadKoi.angle = Math.atan2(Math.sin(leadKoi.angle), -Math.abs(Math.cos(leadKoi.angle))); }
+      if (leadKoi.y < topMargin) { leadKoi.y = topMargin; leadKoi.angle = Math.atan2(Math.abs(Math.sin(leadKoi.angle)), Math.cos(leadKoi.angle)); }
+      if (leadKoi.y > H - margin) { leadKoi.y = H - margin; leadKoi.angle = Math.atan2(-Math.abs(Math.sin(leadKoi.angle)), Math.cos(leadKoi.angle)); }
+    }
+
+    updateIKChain(leadKoi, dt, leadKoi.speed / baseSpeed);
+
+    // 2. Autonomous Boid Schooling for Trailing Koi (Natural Flocking, Not Attached Snake)
+    const minSep = 36 * worldScale;
+    const inPierZone = Math.hypot(leadKoi.x - pier.basketX, leadKoi.y - pier.basketY) < pier.radius * 1.15;
+
+    for (let i = 0; i < school.length; i++) {
+      const fk = school[i];
+      fk.wanderPhase += dt * (1.8 + (i % 3) * 0.35);
+
+      // Desired organic slot behind & around Lead Koi, or funneling into Harvest Basket when harvesting
+      let goalX, goalY;
+      if (inPierZone) {
+        const swirl = totalTime * 3.0 + i * 1.1;
+        goalX = pier.basketX + Math.cos(swirl) * 18 * worldScale;
+        goalY = pier.basketY + Math.sin(swirl) * 18 * worldScale;
+      } else {
+        const swayAngle = fk.slotAngle + Math.sin(fk.wanderPhase) * 0.22;
+        const backAngle = leadKoi.angle + Math.PI + swayAngle;
+        goalX = leadKoi.x + Math.cos(backAngle) * fk.slotDist;
+        goalY = leadKoi.y + Math.sin(backAngle) * fk.slotDist;
+      }
+
+      let steerX = (goalX - fk.x) * 2.4;
+      let steerY = (goalY - fk.y) * 2.4;
+
+      // Personal-space separation from Lead Koi and fellow schoolmates
+      const dLead = Math.hypot(fk.x - leadKoi.x, fk.y - leadKoi.y) || 1;
+      if (dLead < minSep * 1.1) {
+        const push = ((minSep * 1.1 - dLead) / minSep) * 240;
+        steerX += ((fk.x - leadKoi.x) / dLead) * push;
+        steerY += ((fk.y - leadKoi.y) / dLead) * push;
+      }
+      for (let j = 0; j < school.length; j++) {
+        if (i === j) continue;
+        const other = school[j];
+        const dx = fk.x - other.x;
+        const dy = fk.y - other.y;
+        const d = Math.hypot(dx, dy) || 1;
+        if (d < minSep) {
+          const push = ((minSep - d) / minSep) * 210;
+          steerX += (dx / d) * push;
+          steerY += (dy / d) * push;
+        }
+      }
+
+      // Curious nibble veer toward very close food pellets
+      for (let fIdx = 0; fIdx < foods.length; fIdx++) {
+        const fd = foods[fIdx];
+        const dFood = Math.hypot(fd.x - fk.x, fd.y - fk.y);
+        if (dFood < 72 * worldScale && dFood > 4) {
+          steerX += ((fd.x - fk.x) / dFood) * 65;
+          steerY += ((fd.y - fk.y) / dFood) * 65;
+          break;
+        }
+      }
+
+      // Flinch away from imminent Heron strike circles & Snapping Turtles
+      for (const h of herons) {
+        const dH = Math.hypot(fk.x - h.x, fk.y - h.y) || 1;
+        if (dH < h.r * 1.45) {
+          steerX += ((fk.x - h.x) / dH) * 320;
+          steerY += ((fk.y - h.y) / dH) * 320;
+        }
+      }
+      for (const t of turtles) {
+        const dT = Math.hypot(fk.x - t.x, fk.y - t.y) || 1;
+        if (dT < t.r + 58 * worldScale) {
+          steerX += ((fk.x - t.x) / dT) * 280;
+          steerY += ((fk.y - t.y) / dT) * 280;
+        }
+      }
+
+      const desiredFKA = Math.atan2(steerY, steerX);
+      let dAng = desiredFKA - fk.angle;
+      while (dAng > Math.PI) dAng -= TAU;
+      while (dAng < -Math.PI) dAng += TAU;
+      fk.angle += Math.max(-5.2 * dt, Math.min(5.2 * dt, dAng * 6.5 * dt));
+
+      const distToGoal = Math.hypot(goalX - fk.x, goalY - fk.y);
+      const desiredSpd = Math.max(85 * worldScale, Math.min(leadKoi.speed * 1.28, distToGoal * 2.5));
+      fk.speed += (desiredSpd - fk.speed) * Math.min(1, dt * 6);
+      fk.x += Math.cos(fk.angle) * fk.speed * dt;
+      fk.y += Math.sin(fk.angle) * fk.speed * dt;
+
+      updateIKChain(fk, dt, fk.speed / baseSpeed);
+    }
+
+    // 3. Market Pier Harvest Ring Charge
+    if (inPierZone && school.length > 0) {
+      harvestCharge += dt / 0.85;
+      if (harvestCharge >= 1.0) {
+        executeHarvest();
+      }
+    } else {
+      harvestCharge = Math.max(0, harvestCharge - dt * 1.8);
+    }
+
+    // 4. Food Spawning, Ogon Magnet & Eating
+    // Pacing: ~15 pellets to a 3-koi school. A focused first-timer reaches the
+    // first harvest in roughly 45-75 s; a perfect bot does it in ~15-20 s.
+    const maxFoods = 6 + (save.upgrades.autofeeder || 0) * 2;
+    foodSpawnTimer -= dt;
+    if (foodSpawnTimer <= 0 && foods.length < maxFoods) {
+      spawnFood();
+      foodSpawnTimer = Math.max(0.5, 1.6 - (save.upgrades.autofeeder || 0) * 0.2);
+    }
+
+    const pickupR = 26 * worldScale;
+    const ogonMagnetR = hasTrait('ogon') ? 115 * worldScale : 0;
+
+    for (let i = foods.length - 1; i >= 0; i--) {
+      const f = foods[i];
+      f.phase += dt * 4.5;
+      f.life -= dt;
+      if (f.life <= 0) {
+        foods.splice(i, 1);
+        continue;
+      }
+
+      if (f.kind === 'dragonfly') {
+        f.x += f.vx * dt;
+        f.y += f.vy * dt + Math.sin(f.phase * 1.6) * 22 * worldScale * dt;
+        if (f.x < 28 || f.x > W - 28) f.vx *= -1;
+        if (f.y < 52 || f.y > H - 28) f.vy *= -1;
+        const dpx = f.x - pier.basketX, dpy = f.y - pier.basketY;
+        const dp = Math.hypot(dpx, dpy) || 1;
+        if (dp < pier.radius * 1.5) {
+          f.x = pier.basketX + (dpx / dp) * pier.radius * 1.5;
+          f.y = pier.basketY + (dpy / dp) * pier.radius * 1.5;
+          f.vx = Math.abs(f.vx) * Math.sign(dpx || 1);
+          f.vy = Math.abs(f.vy) * Math.sign(dpy || 1);
+        }
+      }
+
+      const dx = leadKoi.x - f.x;
+      const dy = leadKoi.y - f.y;
+      const d = Math.hypot(dx, dy);
+
+      if (ogonMagnetR > 0 && d < ogonMagnetR && d > 1) {
+        const pull = (1 - d / ogonMagnetR) * 145 * worldScale * dt;
+        f.x += (dx / d) * pull;
+        f.y += (dy / d) * pull;
+      }
+
+      if (d < pickupR + f.r) {
+        foods.splice(i, 1);
+        onEatFood(f);
+      }
+    }
+
+    // First-run coach progression
+    if (isFirstRun()) {
+      if (coach.step === 'grow' && (school.length >= 3 || (school.length >= 2 && runTime > 55) || (school.length >= 1 && runTime > 80))) {
+        coach.step = 'sell';
+        trackOnboarding('sell_prompt');
+      }
+      if (!coach.hazardShown) {
+        const t = turtles.find(tt => tt.aiState === 'windup' || Math.hypot(tt.x - leadKoi.x, tt.y - leadKoi.y) < 220 * worldScale);
+        const h = herons[0];
+        const src = h || t;
+        if (src) {
+          coach.hazardShown = true;
+          coach.hazardLabel = { ref: src, life: 2.6 };
+          trackOnboarding('first_hazard');
+        }
+      }
+      if (coach.hazardLabel) {
+        coach.hazardLabel.life -= dt;
+        if (coach.hazardLabel.life <= 0) coach.hazardLabel = null;
+      }
+    }
+
+    // 5. Arcade Hazards: Snapping Turtles & Heron Strikes
+    // Grace periods let a first-time player learn to eat before anything bites.
+    // Pressure then scales with school size, so risk grows with the payout.
+    if (save.mode === 'arcade') {
+      const first = isFirstRun();
+      const turtleOk = first ? (runTime > 16 || school.length >= 1) : runTime > 5;
+      const heronOk = first ? (runTime > 24 && school.length >= 2) : (runTime > 9 && school.length >= 1);
+      const targetTurtles = school.length >= 1 ? Math.min(3, 1 + Math.floor(school.length / 4)) : 1;
+      if (turtleOk && turtles.length < targetTurtles && Math.random() < dt * (turtles.length === 0 ? 1.2 : 0.35)) {
+        spawnTurtle();
+      }
+
+      if (heronOk) {
+        hazardSpawnTimer -= dt;
+        if (hazardSpawnTimer <= 0) {
+          hazardSpawnTimer = Math.max(3.4, 7.0 - school.length * 0.3);
+          if (herons.length < (school.length >= 6 ? 2 : 1)) spawnHeron();
+        }
+      }
+    } else {
+      turtles.length = 0;
+      herons.length = 0;
+    }
+
+    updateTurtles(dt);
+    updateHerons(dt);
+
+    // 6. Surface Lily Pad Occlusion Fade (Smoothly fades when koi swim beneath)
+    for (const pad of lilies) {
+      let covered = Math.hypot(leadKoi.x - pad.x, leadKoi.y - pad.y) < pad.r + 18 * worldScale;
+      if (!covered) {
+        for (let i = 0; i < school.length; i++) {
+          if (Math.hypot(school[i].x - pad.x, school[i].y - pad.y) < pad.r + 14 * worldScale) {
+            covered = true;
+            break;
+          }
+        }
+      }
+      const targetAlpha = covered ? 0.32 : 0.92;
+      pad.alpha += (targetAlpha - pad.alpha) * Math.min(1, dt * 8);
+    }
+
+    // 7. Ambient Ripples, Particles, Popups & Coin Flights
+    for (let i = ripples.length - 1; i >= 0; i--) {
+      const rp = ripples[i];
+      rp.r += 78 * worldScale * dt;
+      rp.life = 1 - rp.r / rp.maxR;
+      if (rp.life <= 0) ripples.splice(i, 1);
+    }
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vx *= 0.93;
+      p.vy *= 0.93;
+      p.life -= dt * 1.4;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+    for (let i = popups.length - 1; i >= 0; i--) {
+      const pop = popups[i];
+      pop.y += pop.vy * dt;
+      pop.life -= dt * 0.9;
+      if (pop.life <= 0) popups.splice(i, 1);
+    }
+    for (let i = coinFlights.length - 1; i >= 0; i--) {
+      const cf = coinFlights[i];
+      cf.t += dt * 1.85;
+      if (cf.t >= 1) {
+        coinFlights.splice(i, 1);
+        continue;
+      }
+      if (cf.t > 0) {
+        const ease = 1 - Math.pow(1 - cf.t, 3);
+        const arc = Math.sin(cf.t * Math.PI) * -45;
+        cf.x = cf.sx + (cf.tx - cf.sx) * ease;
+        cf.y = cf.sy + (cf.ty - cf.sy) * ease + arc;
+      }
+    }
+  }
+
+  function onEatFood(f) {
+    leadKoi.chompTimer = 1.0;
+    comboHits++;
+    comboTimer = getComboWindow();
+    comboMult = Math.min(3.0, 1.0 + Math.floor(comboHits / 2) * 0.25);
+
+    const baitMult = 1 + (save.upgrades.goldenbait || 0) * 0.25;
+    const modeMult = save.mode === 'arcade' ? 1.5 : 1.0;
+    const leadMult = VARIETIES[leadKoi.variety].mult;
+
+    let baseYen = 6;
+    let xpGain = 22;
+    let special = false;
+
+    if (f.kind === 'shrimp') {
+      baseYen = 15;
+      xpGain = 44;
+      special = true;
+    } else if (f.kind === 'dragonfly') {
+      baseYen = 24;
+      xpGain = 58;
+      stamina = Math.min(getMaxStamina(), stamina + 32);
+      special = true;
+    } else if (f.kind === 'lotus') {
+      baseYen = 36;
+      xpGain = growthNeeded; // Instant new koi!
+      stamina = getMaxStamina();
+      special = true;
+    }
+
+    const earned = Math.max(1, Math.round(baseYen * leadMult * baitMult * comboMult * modeMult));
+    save.yen += earned;
+    persist();
+
+    // Advance maturity XP of existing school koi
+    for (const fk of school) {
+      fk.xp += special ? 1.6 : 0.85;
+    }
+
+    growthXp += xpGain;
+    if (coach.step === 'eat') {
+      coach.step = 'grow';
+      trackOnboarding('first_food');
+    }
+    if (growthXp >= growthNeeded) {
+      growthXp -= growthNeeded;
+      growthNeeded = Math.round(80 + school.length * 22);
+      addSchoolKoi();
+      if (school.length === 1) trackOnboarding('first_koi');
+    }
+
+    addRipple(f.x, f.y, special ? 62 : 42, special ? 'rgba(255, 210, 105, 0.65)' : 'rgba(215, 242, 255, 0.45)', 1.8);
+    addParticles(f.x, f.y, special ? 10 : 5, special ? '#ffd269' : '#f3c669', 65, 2.3);
+    addPopup(f.x, f.y - 12 * worldScale, `+¥${earned}`, special ? '#5eead4' : '#ffd269', special);
+    Sound.plop(comboHits, special);
+  }
+
+  function updateTurtles(dt) {
+    for (let i = turtles.length - 1; i >= 0; i--) {
+      const t = turtles[i];
+      if (t.hitCooldown > 0) t.hitCooldown = Math.max(0, t.hitCooldown - dt);
+
+      t.wakeTimer -= dt;
+      if (t.wakeTimer <= 0) {
+        t.wakeTimer = 0.65;
+        addRipple(t.x, t.y, 44, 'rgba(255, 36, 66, 0.28)', 1.3);
+      }
+
+      if (t.aiState === 'patrol') {
+        t.swimPhase += dt * 4.2;
+        t.stateTimer -= dt;
+        t.x += Math.cos(t.angle) * 44 * worldScale * dt;
+        t.y += Math.sin(t.angle) * 44 * worldScale * dt;
+
+        // Soft bounce off pond edges & Market Pier
+        if (t.x < 34) { t.x = 34; t.angle = 0 + (Math.random() - 0.5) * 0.6; }
+        if (t.x > W - 34) { t.x = W - 34; t.angle = Math.PI + (Math.random() - 0.5) * 0.6; }
+        if (t.y < 58) { t.y = 58; t.angle = Math.PI * 0.5 + (Math.random() - 0.5) * 0.6; }
+        if (t.y > H - 34) { t.y = H - 34; t.angle = -Math.PI * 0.5 + (Math.random() - 0.5) * 0.6; }
+
+        if (Math.hypot(t.x - pier.cx, t.y - pier.cy) < pier.radius + 36 * worldScale) {
+          t.angle = Math.atan2(t.y - pier.cy, t.x - pier.cx);
+        }
+
+        // Check if Lead Koi or a school koi is within aggro range to telegraph a Snap Lunge
+        let nearestTarget = leadKoi;
+        let minD = Math.hypot(leadKoi.x - t.x, leadKoi.y - t.y);
+        for (const fk of school) {
+          const d = Math.hypot(fk.x - t.x, fk.y - t.y);
+          if (d < minD) { minD = d; nearestTarget = fk; }
+        }
+
+        if (minD < 145 * worldScale && t.hitCooldown <= 0) {
+          t.aiState = 'windup';
+          t.stateTimer = t.windupTime || 0.75;
+          t.angle = Math.atan2(nearestTarget.y - t.y, nearestTarget.x - t.x);
+        } else if (t.stateTimer <= 0) {
+          t.angle += (Math.random() - 0.5) * 1.4;
+          t.stateTimer = 2.0 + Math.random() * 2.2;
+        }
+      } else if (t.aiState === 'windup') {
+        t.swimPhase += dt * 8.5;
+        t.stateTimer -= dt;
+        if (t.stateTimer <= 0) {
+          t.aiState = 'lunge';
+          t.stateTimer = 0.32;
+          const lungeSpd = 265 * worldScale;
+          t.lungeVx = Math.cos(t.angle) * lungeSpd;
+          t.lungeVy = Math.sin(t.angle) * lungeSpd;
+          Sound.turtleSnap();
+          addRipple(t.x, t.y, 64, 'rgba(255, 36, 66, 0.75)', 2.2);
+          addParticles(t.x, t.y, 10, '#ff2442', 85, 2.5);
+        }
+      } else if (t.aiState === 'lunge') {
+        t.swimPhase += dt * 14;
+        t.stateTimer -= dt;
+        t.x += t.lungeVx * dt;
+        t.y += t.lungeVy * dt;
+        if (t.stateTimer <= 0) {
+          t.aiState = 'recovery';
+          t.stateTimer = 1.2;
+        }
+      } else if (t.aiState === 'recovery') {
+        t.swimPhase += dt * 2.2;
+        t.stateTimer -= dt;
+        if (t.stateTimer <= 0) {
+          t.aiState = 'patrol';
+          t.stateTimer = 2.2;
+        }
+      }
+
+      // Bite check against school koi during lunge
+      if (t.hitCooldown <= 0 && t.aiState === 'lunge') {
+        for (let kIdx = school.length - 1; kIdx >= 0; kIdx--) {
+          const fk = school[kIdx];
+          if (Math.hypot(fk.x - t.x, fk.y - t.y) < t.r + 14 * worldScale) {
+            t.hitCooldown = 1.5;
+            addParticles(fk.x, fk.y, 14, '#ff2442', 100, 3.0);
+            addPopup(fk.x, fk.y - 20 * worldScale, 'SNAPPED! -1 KOI', '#ff4d67', true);
+            school.splice(kIdx, 1);
+            KoiAnalytics.track('enemy_hit', { hazard: 'turtle', target: 'school', koi_lost: 1, school_bucket: bucketSchool(school.length + 1) });
+            triggerShake(4, 0.18);
+            hitStop = 0.05;
+            break;
+          }
+        }
+      }
+
+      // Contact check against Lead Koi. Only a telegraphed attack (windup or
+      // lunge) costs the player; brushing a patrolling turtle is just a bump.
+      const leadTouch = Math.hypot(leadKoi.x - t.x, leadKoi.y - t.y) < t.r + 13 * worldScale;
+      if (leadTouch && t.aiState !== 'windup' && t.aiState !== 'lunge') {
+        const bumpAng = Math.atan2(leadKoi.y - t.y, leadKoi.x - t.x);
+        leadKoi.x += Math.cos(bumpAng) * 90 * worldScale * (1 / 60);
+        leadKoi.y += Math.sin(bumpAng) * 90 * worldScale * (1 / 60);
+      } else if (leadTouch && t.hitCooldown <= 0 && leadInvuln <= 0) {
+        t.hitCooldown = 1.8;
+        leadInvuln = 1.3;
+        t.aiState = 'recovery';
+        t.stateTimer = 1.2;
+        const pushAng = Math.atan2(leadKoi.y - t.y, leadKoi.x - t.x);
+        leadKoi.x += Math.cos(pushAng) * 32 * worldScale;
+        leadKoi.y += Math.sin(pushAng) * 32 * worldScale;
+        leadKoi.angle = pushAng;
+        comboHits = 0;
+        comboMult = 1.0;
+        comboTimer = 0;
+        stamina = Math.max(0, stamina - getMaxStamina() * 0.45);
+        Sound.turtleSnap();
+        addRipple(t.x, t.y, 70, 'rgba(255, 36, 66, 0.85)', 2.4);
+        addPopup(leadKoi.x, leadKoi.y - 22 * worldScale, 'SNAPPER HIT!', '#ff4d67', true);
+        KoiAnalytics.track('enemy_hit', { hazard: 'turtle', target: 'lead', koi_lost: 0, school_bucket: bucketSchool(school.length) });
+        triggerShake(5, 0.22);
+        hitStop = 0.07;
+      }
+    }
+  }
+
+  function updateHerons(dt) {
+    for (let i = herons.length - 1; i >= 0; i--) {
+      const h = herons[i];
+      if (!h.struck) {
+        h.timer -= dt;
+        if (h.timer <= 0) {
+          h.struck = true;
+          h.flashLife = 0.45;
+          Sound.heronStrike();
+          addRipple(h.x, h.y, h.r * 1.65, 'rgba(255, 36, 66, 0.9)', 3.0);
+          addParticles(h.x, h.y, 18, '#ff2442', 125, 3.2);
+          const schoolBefore = school.length;
+
+          // Check if protected by a Lotus Shrine
+          let protectedByShrine = false;
+          for (const sh of shrines) {
+            if (Math.hypot(h.x - sh.x, h.y - sh.y) < sh.r) {
+              protectedByShrine = true;
+              break;
+            }
+          }
+
+          if (protectedByShrine) {
+            addPopup(h.x, h.y - 18 * worldScale, 'SHRINE BLOCKED!', '#5eead4', true);
+          } else {
+            let lostCount = 0;
+            for (let kIdx = school.length - 1; kIdx >= 0; kIdx--) {
+              if (Math.hypot(school[kIdx].x - h.x, school[kIdx].y - h.y) < h.r) {
+                school.splice(kIdx, 1);
+                lostCount++;
+              }
+            }
+            if (Math.hypot(leadKoi.x - h.x, leadKoi.y - h.y) < h.r && leadInvuln <= 0) {
+              leadInvuln = 1.2;
+              comboHits = 0;
+              comboMult = 1.0;
+              comboTimer = 0;
+              if (school.length > 0 && lostCount === 0) {
+                school.pop();
+                lostCount++;
+              }
+              addPopup(h.x, h.y - 22 * worldScale, lostCount ? `HERON STRIKE! -${lostCount} KOI` : 'HERON STRIKE!', '#ff4d67', true);
+              KoiAnalytics.track('enemy_hit', { hazard: 'heron', target: 'lead', koi_lost: lostCount, school_bucket: bucketSchool(schoolBefore) });
+              triggerShake(6, 0.24);
+              hitStop = 0.08;
+            } else if (lostCount > 0) {
+              addPopup(h.x, h.y - 22 * worldScale, `HERON CAUGHT ${lostCount} KOI!`, '#ff4d67', true);
+              KoiAnalytics.track('enemy_hit', { hazard: 'heron', target: 'school', koi_lost: lostCount, school_bucket: bucketSchool(schoolBefore) });
+              triggerShake(5, 0.2);
+              hitStop = 0.05;
+            } else {
+              addPopup(h.x, h.y - 18 * worldScale, 'DODGED!', '#7dd3fc', false);
+              triggerShake(1.5, 0.1);
+            }
+          }
+        }
+      } else {
+        h.flashLife -= dt;
+        if (h.flashLife <= 0) {
+          herons.splice(i, 1);
+        }
+      }
+    }
+  }
+
+  // Shake is capped and skipped for prefers-reduced-motion. A stronger shake
+  // never gets overwritten by a weaker one mid-flight.
+  function triggerShake(mag, time) {
+    if (reducedMotion) return;
+    const m = Math.min(6, mag) * worldScale;
+    if (shakeTime > 0 && m < shakeMag) return;
+    shakeMag = m;
+    shakeTime = time;
+    shakeDur = time;
+  }
+
+  /* =========================================================================
+     9. RENDERING PIPELINE (3-LAYER SUMI-E VECTOR CANVAS 2D)
+     ========================================================================= */
+  function renderCaustics() {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(72, 168, 196, 0.055)';
+    ctx.lineWidth = 22 * worldScale;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 4; i++) {
+      const baseY = H * (0.22 + i * 0.20);
+      ctx.beginPath();
+      for (let x = -40; x <= W + 40; x += 70) {
+        const y = baseY + Math.sin(x * 0.008 + totalTime * 0.65 + i * 1.7) * 26 * worldScale;
+        if (x === -40) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function renderLotusShrines() {
+    for (const sh of shrines) {
+      const pulse = 0.75 + Math.sin(totalTime * 2.2 + sh.phase) * 0.25;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(sh.x, sh.y, sh.r, 0, TAU);
+      ctx.fillStyle = `rgba(94, 234, 212, ${0.045 * pulse})`;
+      ctx.fill();
+      ctx.setLineDash([8 * worldScale, 6 * worldScale]);
+      ctx.lineDashOffset = -totalTime * 14;
+      ctx.strokeStyle = `rgba(94, 234, 212, ${0.32 * pulse})`;
+      ctx.lineWidth = 1.6 * worldScale;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  function renderMarketPier() {
+    const bd = computeHarvestBreakdown();
+    const hasSchool = school.length > 0;
+    const isOrderReady = bd.orderComplete;
+
+    ctx.save();
+
+    // Subtle water shadow under pier
+    ctx.fillStyle = 'rgba(2, 8, 12, 0.55)';
+    ctx.beginPath();
+    ctx.roundRect(pier.x + 6, pier.y + 8, pier.w, pier.h, 10 * worldScale);
+    ctx.fill();
+
+    // Dark timber pilings
+    ctx.fillStyle = '#181412';
+    const postOffsets = [
+      [10, 10], [pier.w - 10, 10],
+      [10, pier.h - 10], [pier.w - 10, pier.h - 10]
+    ];
+    for (const [ox, oy] of postOffsets) {
+      ctx.beginPath();
+      ctx.arc(pier.x + ox, pier.y + oy, 5.5 * worldScale, 0, TAU);
+      ctx.fill();
+    }
+
+    // Weathered Cedar Deck Planks
+    ctx.fillStyle = '#3a291e';
+    ctx.strokeStyle = '#1d140e';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(pier.x, pier.y, pier.w, pier.h, 8 * worldScale);
+    ctx.fill();
+    ctx.stroke();
+
+    // Individual plank seams
+    ctx.strokeStyle = 'rgba(20, 13, 9, 0.65)';
+    ctx.lineWidth = 1.3;
+    const plankCount = 5;
+    for (let i = 1; i < plankCount; i++) {
+      const py = pier.y + (pier.h / plankCount) * i;
+      ctx.beginPath();
+      ctx.moveTo(pier.x + 4, py);
+      ctx.lineTo(pier.x + pier.w - 4, py);
+      ctx.stroke();
+    }
+
+    // Twin Flickering Paper Lanterns
+    const flicker = 0.88 + Math.sin(totalTime * 9.5) * 0.12;
+    const lanterns = [
+      { x: pier.x + 14 * worldScale, y: pier.y + pier.h - 12 * worldScale },
+      { x: pier.x + pier.w - 14 * worldScale, y: pier.y + pier.h - 12 * worldScale }
+    ];
+    for (const ln of lanterns) {
+      const glow = ctx.createRadialGradient(ln.x, ln.y, 2, ln.x, ln.y, 34 * worldScale);
+      glow.addColorStop(0, `rgba(255, 210, 105, ${0.42 * flicker})`);
+      glow.addColorStop(1, 'rgba(255, 210, 105, 0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(ln.x, ln.y, 34 * worldScale, 0, TAU);
+      ctx.fill();
+
+      ctx.fillStyle = '#ffd269';
+      ctx.strokeStyle = '#6b3e14';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.ellipse(ln.x, ln.y, 5.5 * worldScale, 7 * worldScale, 0, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // Floating Woven Bamboo Harvest Basket in water beside pier
+    const bobY = Math.sin(totalTime * 2.8) * 2.2 * worldScale;
+    const bx = pier.basketX;
+    const by = pier.basketY + bobY;
+    const br = 18 * worldScale;
+
+    // Harvest Zone Ring & Charge Progress
+    ctx.beginPath();
+    ctx.arc(bx, by, pier.radius, 0, TAU);
+    ctx.strokeStyle = isOrderReady
+      ? 'rgba(94, 234, 212, 0.55)'
+      : (hasSchool ? 'rgba(255, 210, 105, 0.42)' : 'rgba(164, 206, 224, 0.16)');
+    ctx.lineWidth = 1.8 * worldScale;
+    ctx.setLineDash([6 * worldScale, 5 * worldScale]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    if (harvestCharge > 0) {
+      ctx.beginPath();
+      ctx.arc(bx, by, pier.radius, -Math.PI * 0.5, -Math.PI * 0.5 + TAU * Math.min(1, harvestCharge));
+      ctx.strokeStyle = isOrderReady ? '#5eead4' : '#ffd269';
+      ctx.lineWidth = 4.2 * worldScale;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    }
+
+    // Inward pulsing golden water chevrons when player has koi to sell
+    if (hasSchool) {
+      const chevAlpha = 0.45 + Math.sin(totalTime * 5) * 0.35;
+      ctx.strokeStyle = isOrderReady ? `rgba(94, 234, 212, ${chevAlpha})` : `rgba(255, 210, 105, ${chevAlpha})`;
+      ctx.lineWidth = 2 * worldScale;
+      const offset = (totalTime * 18) % (14 * worldScale);
+      const angIn = Math.atan2(by - H * 0.55, bx - W * 0.45);
+      const cx = bx - Math.cos(angIn) * (pier.radius + 14 * worldScale - offset);
+      const cy = by - Math.sin(angIn) * (pier.radius + 14 * worldScale - offset);
+      ctx.beginPath();
+      ctx.moveTo(cx - Math.cos(angIn - 0.6) * 7 * worldScale, cy - Math.sin(angIn - 0.6) * 7 * worldScale);
+      ctx.lineTo(cx, cy);
+      ctx.lineTo(cx - Math.cos(angIn + 0.6) * 7 * worldScale, cy - Math.sin(angIn + 0.6) * 7 * worldScale);
+      ctx.stroke();
+    }
+
+    // Woven Bamboo Basket
+    ctx.fillStyle = '#8b6334';
+    ctx.strokeStyle = '#3b2610';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(bx, by, br, 0, TAU);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#24180c';
+    ctx.beginPath();
+    ctx.arc(bx, by, br * 0.68, 0, TAU);
+    ctx.fill();
+
+    // Clear In-World Pier Status Label Pill
+    const labelText = !hasSchool
+      ? 'KOI MARKET • GROW SCHOOL'
+      : (isOrderReady ? `ORDER READY! • +¥${bd.total}` : `SWIM TO SELL • +¥${bd.total}`);
+
+    ctx.font = `700 ${Math.max(10, Math.round(11 * worldScale))}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+    const textW = ctx.measureText(labelText).width;
+    const pillW = textW + 16 * worldScale;
+    const pillH = 21 * worldScale;
+    const pillX = Math.min(W - pillW - 8, Math.max(8, pier.cx - pillW * 0.5));
+    const pillY = pier.y + pier.h + 12 * worldScale;
+
+    ctx.fillStyle = isOrderReady
+      ? 'rgba(12, 48, 44, 0.92)'
+      : (hasSchool ? 'rgba(34, 26, 12, 0.90)' : 'rgba(9, 22, 30, 0.84)');
+    ctx.strokeStyle = isOrderReady
+      ? '#5eead4'
+      : (hasSchool ? '#ffd269' : 'rgba(164, 206, 224, 0.28)');
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.roundRect(pillX, pillY, pillW, pillH, 999);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = isOrderReady ? '#5eead4' : (hasSchool ? '#ffd269' : '#93b0c0');
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(labelText, pillX + pillW * 0.5, pillY + pillH * 0.5 + 0.5);
+
+    ctx.restore();
+
+    // Off-pier directional guide chevron when school >= 3 or Order Ready and player is far away
+    if (leadKoi && (school.length >= 3 || isOrderReady || (coach.step === 'sell' && hasSchool))) {
+      const distPier = Math.hypot(leadKoi.x - pier.basketX, leadKoi.y - pier.basketY);
+      if (distPier > 150 * worldScale) {
+        const ang = Math.atan2(pier.basketY - leadKoi.y, pier.basketX - leadKoi.x);
+        const gx = leadKoi.x + Math.cos(ang) * 52 * worldScale;
+        const gy = leadKoi.y + Math.sin(ang) * 52 * worldScale;
+        ctx.save();
+        ctx.translate(gx, gy);
+        ctx.rotate(ang);
+        ctx.fillStyle = isOrderReady ? 'rgba(94, 234, 212, 0.85)' : 'rgba(255, 210, 105, 0.78)';
+        ctx.beginPath();
+        ctx.moveTo(8 * worldScale, 0);
+        ctx.lineTo(-5 * worldScale, -5 * worldScale);
+        ctx.lineTo(-2.5 * worldScale, 0);
+        ctx.lineTo(-5 * worldScale, 5 * worldScale);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+
+  function renderFoods() {
+    for (const f of foods) {
+      const bob = Math.sin(f.phase) * 2.2 * worldScale;
+      const fx = f.x;
+      const fy = f.y + bob;
+
+      ctx.save();
+      if (f.kind === 'pellet') {
+        const glow = ctx.createRadialGradient(fx, fy, 1, fx, fy, f.r * 2.4);
+        glow.addColorStop(0, 'rgba(255, 210, 105, 0.55)');
+        glow.addColorStop(1, 'rgba(255, 210, 105, 0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(fx, fy, f.r * 2.4, 0, TAU);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffd269';
+        ctx.beginPath();
+        ctx.arc(fx, fy, f.r * 0.75, 0, TAU);
+        ctx.fill();
+      } else if (f.kind === 'shrimp') {
+        ctx.fillStyle = 'rgba(251, 113, 133, 0.35)';
+        ctx.beginPath();
+        ctx.arc(fx, fy, f.r * 2.1, 0, TAU);
+        ctx.fill();
+
+        ctx.strokeStyle = '#fb7185';
+        ctx.lineWidth = 4.2 * worldScale;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.arc(fx, fy, f.r * 0.85, -0.4, Math.PI + 0.5);
+        ctx.stroke();
+      } else if (f.kind === 'dragonfly') {
+        const wingFlap = Math.sin(totalTime * 36 + f.phase) * 0.35;
+        ctx.translate(fx, fy);
+        ctx.rotate(Math.atan2(f.vy, f.vx));
+        ctx.fillStyle = 'rgba(125, 211, 252, 0.55)';
+        for (const s of [-1, 1]) {
+          ctx.save();
+          ctx.scale(1, s * (0.85 + wingFlap));
+          ctx.beginPath();
+          ctx.ellipse(-1 * worldScale, 7 * worldScale, 3.2 * worldScale, 8 * worldScale, 0.25, 0, TAU);
+          ctx.fill();
+          ctx.restore();
+        }
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.6 * worldScale;
+        ctx.beginPath();
+        ctx.moveTo(-8 * worldScale, 0);
+        ctx.lineTo(7 * worldScale, 0);
+        ctx.stroke();
+      } else if (f.kind === 'lotus') {
+        const pulse = 1 + Math.sin(f.phase * 1.4) * 0.12;
+        const glow = ctx.createRadialGradient(fx, fy, 2, fx, fy, f.r * 2.8 * pulse);
+        glow.addColorStop(0, 'rgba(255, 226, 122, 0.75)');
+        glow.addColorStop(1, 'rgba(255, 226, 122, 0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(fx, fy, f.r * 2.8 * pulse, 0, TAU);
+        ctx.fill();
+
+        for (let p = 0; p < 6; p++) {
+          const a = (p / 6) * TAU + totalTime * 0.8;
+          ctx.fillStyle = '#fde68a';
+          ctx.beginPath();
+          ctx.ellipse(
+            fx + Math.cos(a) * f.r * 0.55,
+            fy + Math.sin(a) * f.r * 0.55,
+            f.r * 0.55, f.r * 0.28, a, 0, TAU
+          );
+          ctx.fill();
+        }
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(fx, fy, f.r * 0.32, 0, TAU);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  function renderIKKoi(koi) {
+    const v = VARIETIES[koi.variety] || VARIETIES.kohaku;
+    const nodes = koi.nodes;
+    const maxRadius = (koi.isLead ? 12.2 : 9.6) * worldScale * (koi.isLead ? (1 + koi.chompTimer * 0.14) : koi.scale);
+
+    // Compute left/right contour points along the 14 IK nodes
+    const leftPts = new Array(IK_NODES);
+    const rightPts = new Array(IK_NODES);
+
+    for (let i = 0; i < IK_NODES; i++) {
+      const curr = nodes[i];
+      const prev = i > 0 ? nodes[i - 1] : curr;
+      const next = i < IK_NODES - 1 ? nodes[i + 1] : curr;
+      let tx = prev.x - next.x;
+      let ty = prev.y - next.y;
+      const len = Math.hypot(tx, ty) || 1;
+      tx /= len;
+      ty /= len;
+      const nx = -ty;
+      const ny = tx;
+      const r = BODY_PROFILE[i] * maxRadius;
+      leftPts[i] = { x: curr.x + nx * r, y: curr.y + ny * r, nx, ny };
+      rightPts[i] = { x: curr.x - nx * r, y: curr.y - ny * r };
+    }
+
+    ctx.save();
+
+    // 1. Soft Water Drop Shadow beneath fish
+    ctx.save();
+    ctx.translate(6 * worldScale, 9 * worldScale);
+    ctx.fillStyle = 'rgba(2, 7, 11, 0.46)';
+    drawKoiHullPath(leftPts, rightPts);
+    ctx.fill();
+    ctx.restore();
+
+    // 2. Translucent Pectoral & Pelvic Fins
+    const finNodes = [
+      { idx: 3, len: maxRadius * 1.65, width: maxRadius * 0.72, sweep: 0.55 },
+      { idx: 7, len: maxRadius * 0.95, width: maxRadius * 0.45, sweep: 0.65 }
+    ];
+    for (const fn of finNodes) {
+      const pt = nodes[fn.idx];
+      const nx = leftPts[fn.idx].nx;
+      const ny = leftPts[fn.idx].ny;
+      const baseAng = Math.atan2(ny, nx);
+      const flap = Math.sin(koi.phase - fn.idx * 0.4) * 0.22;
+
+      for (const side of [-1, 1]) {
+        const ang = (side === 1 ? baseAng : baseAng + Math.PI) + side * (fn.sweep + flap);
+        ctx.save();
+        ctx.translate(pt.x + nx * side * maxRadius * 0.55, pt.y + ny * side * maxRadius * 0.55);
+        ctx.rotate(ang);
+        ctx.fillStyle = v.finColor;
+        ctx.beginPath();
+        ctx.ellipse(fn.len * 0.5, 0, fn.len * 0.55, fn.width * 0.45, 0, 0, TAU);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // 3. Forked Caudal Tail Fin at Node 13
+    const tailBase = nodes[IK_NODES - 1];
+    const tailPrev = nodes[IK_NODES - 3];
+    const tailAng = Math.atan2(tailBase.y - tailPrev.y, tailBase.x - tailPrev.x);
+    const tailLen = maxRadius * 1.9;
+    const tailSpread = maxRadius * 1.15;
+
+    ctx.save();
+    ctx.translate(tailBase.x, tailBase.y);
+    ctx.rotate(tailAng);
+    ctx.fillStyle = v.finColor;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(tailLen * 0.55, -tailSpread, tailLen, -tailSpread * 0.85);
+    ctx.quadraticCurveTo(tailLen * 0.62, 0, tailLen, tailSpread * 0.85);
+    ctx.quadraticCurveTo(tailLen * 0.55, tailSpread, 0, 0);
+    ctx.fill();
+    ctx.restore();
+
+    // 4. Main Tapered Koi Body + Clipped Sumi-e Pigment Markings
+    ctx.save();
+    drawKoiHullPath(leftPts, rightPts);
+    ctx.fillStyle = v.baseColor;
+    ctx.fill();
+    ctx.clip();
+
+    // Variety markings
+    if (koi.variety === 'tancho') {
+      // Classic crimson crown spot on forehead
+      ctx.fillStyle = v.patchColor;
+      ctx.beginPath();
+      ctx.arc(nodes[1].x, nodes[1].y, maxRadius * 0.56, 0, TAU);
+      ctx.fill();
+    } else if (koi.variety === 'asagi') {
+      // Crimson flanks along mid-body
+      ctx.fillStyle = v.patchColor;
+      for (const idx of [4, 6, 8]) {
+        ctx.beginPath();
+        ctx.arc(leftPts[idx].x, leftPts[idx].y, maxRadius * 0.52, 0, TAU);
+        ctx.arc(rightPts[idx].x, rightPts[idx].y, maxRadius * 0.52, 0, TAU);
+        ctx.fill();
+      }
+    } else if (v.patchColor) {
+      ctx.fillStyle = v.patchColor;
+      const patchIndices = [2, 5, 8, 10];
+      for (let p = 0; p < patchIndices.length; p++) {
+        const idx = patchIndices[p];
+        const wave = Math.sin(koi.seed + p * 2.1);
+        if (wave > -0.25) {
+          const px = nodes[idx].x + leftPts[idx].nx * wave * maxRadius * 0.35;
+          const py = nodes[idx].y + leftPts[idx].ny * wave * maxRadius * 0.35;
+          ctx.beginPath();
+          ctx.arc(px, py, maxRadius * (0.72 + (p % 2) * 0.2), 0, TAU);
+          ctx.fill();
+        }
+      }
+    }
+
+    if (v.sumiColor) {
+      ctx.fillStyle = v.sumiColor;
+      for (const idx of [3, 7]) {
+        const off = Math.cos(koi.seed + idx) * maxRadius * 0.42;
+        ctx.beginPath();
+        ctx.arc(nodes[idx].x + leftPts[idx].nx * off, nodes[idx].y + leftPts[idx].ny * off, maxRadius * 0.46, 0, TAU);
+        ctx.fill();
+      }
+    }
+
+    // Subtle dorsal highlight
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.38)';
+    ctx.lineWidth = 1.6 * worldScale;
+    ctx.beginPath();
+    ctx.moveTo(nodes[1].x, nodes[1].y);
+    for (let i = 2; i < 10; i++) ctx.lineTo(nodes[i].x, nodes[i].y);
+    ctx.stroke();
+    ctx.restore();
+
+    // Crisp Sumi-e ink outline
+    drawKoiHullPath(leftPts, rightPts);
+    ctx.strokeStyle = 'rgba(10, 18, 24, 0.65)';
+    ctx.lineWidth = 1.3 * worldScale;
+    ctx.stroke();
+
+    // 5. Eyes at Node 1
+    const eye1 = leftPts[1];
+    const eye2 = rightPts[1];
+    ctx.fillStyle = '#091218';
+    ctx.beginPath();
+    ctx.arc(eye1.x * 0.82 + nodes[1].x * 0.18, eye1.y * 0.82 + nodes[1].y * 0.18, 1.8 * worldScale, 0, TAU);
+    ctx.arc(eye2.x * 0.82 + nodes[1].x * 0.18, eye2.y * 0.82 + nodes[1].y * 0.18, 1.8 * worldScale, 0, TAU);
+    ctx.fill();
+
+    // 6. Diegetic Stamina Arc around Lead Koi when dashing or recharging
+    if (koi.isLead) {
+      const maxStam = getMaxStamina();
+      const stamRatio = stamina / maxStam;
+      if (isDashing || stamRatio < 0.98) {
+        ctx.beginPath();
+        ctx.arc(
+          koi.x, koi.y,
+          24 * worldScale,
+          koi.angle + Math.PI - 0.85 * stamRatio,
+          koi.angle + Math.PI + 0.85 * stamRatio
+        );
+        ctx.strokeStyle = isDashing ? 'rgba(94, 234, 212, 0.85)' : 'rgba(125, 211, 252, 0.45)';
+        ctx.lineWidth = 2.4 * worldScale;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  function drawKoiHullPath(leftPts, rightPts) {
+    ctx.beginPath();
+    ctx.moveTo(leftPts[0].x, leftPts[0].y);
+    for (let i = 1; i < IK_NODES; i++) {
+      const prev = leftPts[i - 1];
+      const curr = leftPts[i];
+      ctx.quadraticCurveTo(prev.x, prev.y, (prev.x + curr.x) * 0.5, (prev.y + curr.y) * 0.5);
+    }
+    ctx.lineTo(rightPts[IK_NODES - 1].x, rightPts[IK_NODES - 1].y);
+    for (let i = IK_NODES - 2; i >= 0; i--) {
+      const prev = rightPts[i + 1];
+      const curr = rightPts[i];
+      ctx.quadraticCurveTo(prev.x, prev.y, (prev.x + curr.x) * 0.5, (prev.y + curr.y) * 0.5);
+    }
+    ctx.closePath();
+  }
+
+  function renderTurtles() {
+    for (const t of turtles) {
+      const r = t.r;
+      const isWindup = t.aiState === 'windup';
+      const isLunge = t.aiState === 'lunge';
+
+      ctx.save();
+
+      // Telegraphed Crimson Aim Cone during 0.75s Wind-up
+      if (isWindup) {
+        const charge = 1 - Math.max(0, t.stateTimer / (t.windupTime || 0.75));
+        const coneLen = r + 95 * worldScale * charge;
+        ctx.save();
+        ctx.translate(t.x, t.y);
+        ctx.rotate(t.angle);
+        ctx.fillStyle = `rgba(255, 36, 66, ${0.14 + charge * 0.22})`;
+        ctx.strokeStyle = 'rgba(255, 36, 66, 0.85)';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.arc(0, 0, coneLen, -0.34, 0.34);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Pulsing Dashed Crimson Danger Aura
+      const auraPulse = 0.55 + Math.sin(totalTime * 7 + t.x) * 0.35;
+      ctx.beginPath();
+      ctx.arc(t.x, t.y, r + 9 * worldScale, 0, TAU);
+      ctx.strokeStyle = `rgba(255, 36, 66, ${isWindup || isLunge ? 0.92 : auraPulse * 0.55})`;
+      ctx.lineWidth = (isWindup ? 2.2 : 1.5) * worldScale;
+      ctx.setLineDash([5 * worldScale, 4 * worldScale]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.translate(t.x, t.y);
+      ctx.rotate(t.angle);
+
+      // Drop Shadow
+      ctx.fillStyle = 'rgba(2, 6, 10, 0.58)';
+      ctx.beginPath();
+      ctx.ellipse(4 * worldScale, 7 * worldScale, r * 1.12, r * 0.88, 0, 0, TAU);
+      ctx.fill();
+
+      // Segmented Spiky Tail
+      const tailWag = Math.sin(t.swimPhase * 1.2) * 0.25;
+      ctx.save();
+      ctx.rotate(tailWag);
+      ctx.fillStyle = '#15121c';
+      ctx.strokeStyle = '#ff2442';
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.85, -3 * worldScale);
+      ctx.lineTo(-r * 1.55, 0);
+      ctx.lineTo(-r * 0.85, 3 * worldScale);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // 4 Paddling Webbed/Clawed Flippers
+      const flippers = [
+        { x: r * 0.42,  y: -r * 0.72, side: -1, phase: 0 },
+        { x: r * 0.42,  y:  r * 0.72, side:  1, phase: Math.PI },
+        { x: -r * 0.48, y: -r * 0.68, side: -1, phase: Math.PI },
+        { x: -r * 0.48, y:  r * 0.68, side:  1, phase: 0 }
+      ];
+      for (const fl of flippers) {
+        const strokeAng = Math.sin(t.swimPhase + fl.phase) * 0.42;
+        ctx.save();
+        ctx.translate(fl.x, fl.y);
+        ctx.rotate(fl.side * (0.65 + strokeAng));
+        ctx.fillStyle = '#16121d';
+        ctx.strokeStyle = '#382230';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.ellipse(0, fl.side * r * 0.34, r * 0.22, r * 0.42, 0, 0, TAU);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Articulated Snapping Head & Crimson Jaws
+      const headExt = isWindup ? r * 0.38 : (isLunge ? r * 0.52 : r * 0.22);
+      const jawOpen = isWindup ? 0.34 : (isLunge ? 0.12 : 0.04);
+      ctx.save();
+      ctx.translate(r * 0.85 + headExt, 0);
+      if (jawOpen > 0.05) {
+        ctx.fillStyle = '#ff2442';
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(r * 0.48, -r * jawOpen);
+        ctx.lineTo(r * 0.48, r * jawOpen);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.fillStyle = '#14101a';
+      ctx.strokeStyle = '#ff2442';
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.ellipse(r * 0.14, 0, r * 0.36, r * 0.24, 0, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+
+      // Glowing Crimson Eyes
+      ctx.fillStyle = '#ff2442';
+      ctx.beginPath();
+      ctx.arc(r * 0.24, -r * 0.13, 2.2 * worldScale, 0, TAU);
+      ctx.arc(r * 0.24, r * 0.13, 2.2 * worldScale, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+
+      // Serrated Obsidian Carapace with Glowing Crimson Scute Seams
+      const spikes = 12;
+      ctx.fillStyle = '#100c14';
+      ctx.strokeStyle = '#ff2442';
+      ctx.lineWidth = 1.6 * worldScale;
+      ctx.beginPath();
+      for (let s = 0; s < spikes; s++) {
+        const a = (s / spikes) * TAU;
+        const rad = (s % 2 === 0 ? r * 1.06 : r * 0.90);
+        const px = Math.cos(a) * rad * 1.08;
+        const py = Math.sin(a) * rad * 0.88;
+        if (s === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Inner Hexagonal Carapace Ridge
+      ctx.strokeStyle = 'rgba(255, 36, 66, 0.55)';
+      ctx.lineWidth = 1.2 * worldScale;
+      ctx.beginPath();
+      for (let h = 0; h < 6; h++) {
+        const a = (h / 6) * TAU;
+        const hx = Math.cos(a) * r * 0.54;
+        const hy = Math.sin(a) * r * 0.44;
+        if (h === 0) ctx.moveTo(hx, hy);
+        else ctx.lineTo(hx, hy);
+      }
+      ctx.closePath();
+      ctx.stroke();
+
+      ctx.restore();
+    }
+  }
+
+  function renderHerons() {
+    for (const h of herons) {
+      ctx.save();
+      if (!h.struck) {
+        const progress = 1 - Math.max(0, h.timer / h.maxTimer);
+        const shrinkR = h.r * (1.35 - progress * 0.85);
+
+        // Swooping Dark Heron Wing Shadow across the pond
+        const wingDist = (1 - progress) * 160 * worldScale;
+        const wx = h.x - Math.cos(h.wingAngle) * wingDist;
+        const wy = h.y - Math.sin(h.wingAngle) * wingDist;
+        ctx.save();
+        ctx.translate(wx, wy);
+        ctx.rotate(h.wingAngle);
+        ctx.fillStyle = `rgba(5, 10, 15, ${0.22 + progress * 0.25})`;
+        ctx.beginPath();
+        ctx.moveTo(26 * worldScale, 0);
+        ctx.quadraticCurveTo(-10 * worldScale, -85 * worldScale, -44 * worldScale, -56 * worldScale);
+        ctx.lineTo(-22 * worldScale, 0);
+        ctx.lineTo(-44 * worldScale, 56 * worldScale);
+        ctx.quadraticCurveTo(-10 * worldScale, 85 * worldScale, 26 * worldScale, 0);
+        ctx.fill();
+        ctx.restore();
+
+        // Outer Strike Danger Zone
+        ctx.fillStyle = `rgba(255, 36, 66, ${0.10 + progress * 0.16})`;
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, h.r, 0, TAU);
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(255, 36, 66, 0.82)';
+        ctx.lineWidth = 2 * worldScale;
+        ctx.setLineDash([7 * worldScale, 5 * worldScale]);
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, h.r, 0, TAU);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Shrinking Countdown Reticle Ring
+        ctx.strokeStyle = '#ff2442';
+        ctx.lineWidth = 2.6 * worldScale;
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, Math.max(6, shrinkR), 0, TAU);
+        ctx.stroke();
+
+        // Center Crosshair
+        ctx.beginPath();
+        ctx.moveTo(h.x - 8 * worldScale, h.y);
+        ctx.lineTo(h.x + 8 * worldScale, h.y);
+        ctx.moveTo(h.x, h.y - 8 * worldScale);
+        ctx.lineTo(h.x, h.y + 8 * worldScale);
+        ctx.stroke();
+      } else {
+        // Strike Flash
+        const a = Math.max(0, h.flashLife / 0.45);
+        ctx.fillStyle = `rgba(255, 59, 86, ${a * 0.45})`;
+        ctx.beginPath();
+        ctx.arc(h.x, h.y, h.r * (1.15 - a * 0.15), 0, TAU);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  function renderSurfaceLilies() {
+    for (const pad of lilies) {
+      const swayX = Math.sin(totalTime * 0.75 + pad.phase) * 3 * worldScale;
+      const swayY = Math.cos(totalTime * 0.62 + pad.phase) * 2.5 * worldScale;
+      const cx = pad.x + swayX;
+      const cy = pad.y + swayY;
+
+      ctx.save();
+      ctx.globalAlpha = pad.alpha;
+
+      // Soft Drop Shadow
+      ctx.fillStyle = 'rgba(2, 8, 12, 0.35)';
+      ctx.beginPath();
+      ctx.arc(cx + 4 * worldScale, cy + 6 * worldScale, pad.r, pad.notch + 0.28, pad.notch + TAU - 0.28);
+      ctx.lineTo(cx + 4 * worldScale, cy + 6 * worldScale);
+      ctx.closePath();
+      ctx.fill();
+
+      // Muted Jade-Green Lily Pad
+      const padGrad = ctx.createRadialGradient(cx, cy, pad.r * 0.15, cx, cy, pad.r);
+      padGrad.addColorStop(0, '#1d5646');
+      padGrad.addColorStop(0.85, '#154236');
+      padGrad.addColorStop(1, '#266d58');
+      ctx.fillStyle = padGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, pad.r, pad.notch + 0.28, pad.notch + TAU - 0.28);
+      ctx.lineTo(cx, cy);
+      ctx.closePath();
+      ctx.fill();
+
+      // Delicate Radial Leaf Veins
+      ctx.strokeStyle = 'rgba(110, 198, 168, 0.22)';
+      ctx.lineWidth = 1.1;
+      for (let v = 0; v < 7; v++) {
+        const va = pad.notch + 0.55 + (v / 7) * (TAU - 1.1);
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + Math.cos(va) * pad.r * 0.88, cy + Math.sin(va) * pad.r * 0.88);
+        ctx.stroke();
+      }
+
+      // Lotus Blossom
+      if (pad.lotus) {
+        const petals = 8;
+        const fr = pad.r * 0.36;
+        for (let p = 0; p < petals; p++) {
+          const pa = (p / petals) * TAU + Math.sin(totalTime * 0.4) * 0.08;
+          ctx.fillStyle = pad.lotus;
+          ctx.beginPath();
+          ctx.ellipse(
+            cx + Math.cos(pa) * fr * 0.55,
+            cy + Math.sin(pa) * fr * 0.55,
+            fr * 0.55, fr * 0.26, pa, 0, TAU
+          );
+          ctx.fill();
+        }
+        ctx.fillStyle = '#ffd269';
+        ctx.beginPath();
+        ctx.arc(cx, cy, fr * 0.26, 0, TAU);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+  }
+
+  function drawCoachLabel(x, y, text, color, alpha = 1) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.font = `700 ${Math.max(11, Math.round(12 * worldScale))}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+    const tw = ctx.measureText(text).width;
+    const pw = tw + 14;
+    const ph = 20;
+    const px = Math.max(6, Math.min(W - pw - 6, x - pw / 2));
+    const py = Math.max(56, Math.min(H - ph - 6, y - ph / 2));
+    ctx.fillStyle = 'rgba(6, 16, 22, 0.82)';
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(px, py, pw, ph, 999);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, px + pw / 2, py + ph / 2 + 0.5);
+    ctx.restore();
+  }
+
+  // In-world first-run cues. They only draw before the first ever harvest.
+  function renderCoach() {
+    if (state !== 'playing' || !leadKoi || !isFirstRun()) return;
+    const pulse = 0.5 + Math.sin(totalTime * 5) * 0.5;
+
+    if (coach.step === 'eat' || coach.step === 'grow') {
+      let best = null;
+      let bestD = Infinity;
+      for (const f of foods) {
+        const d = Math.hypot(f.x - leadKoi.x, f.y - leadKoi.y);
+        if (d < bestD) { bestD = d; best = f; }
+      }
+      if (best) {
+        ctx.save();
+        ctx.strokeStyle = `rgba(255, 210, 105, ${0.35 + pulse * 0.45})`;
+        ctx.lineWidth = 1.8 * worldScale;
+        ctx.beginPath();
+        ctx.arc(best.x, best.y, best.r + (10 + pulse * 6) * worldScale, 0, TAU);
+        ctx.stroke();
+        if (coach.step === 'eat') {
+          ctx.setLineDash([3 * worldScale, 7 * worldScale]);
+          ctx.lineDashOffset = -totalTime * 30;
+          ctx.strokeStyle = 'rgba(255, 210, 105, 0.35)';
+          ctx.beginPath();
+          ctx.moveTo(leadKoi.x, leadKoi.y);
+          ctx.lineTo(best.x, best.y);
+          ctx.stroke();
+        }
+        ctx.restore();
+        if (coach.step === 'eat') {
+          drawCoachLabel(best.x, best.y - 30 * worldScale, 'Swim into food', '#ffd269');
+        }
+      }
+      if (coach.step === 'grow') {
+        const left = Math.max(1, Math.ceil((growthNeeded - growthXp) / 22));
+        const label = school.length === 0
+          ? `${left} more \u2192 a koi joins you`
+          : `School ${school.length}/3 \u2022 ${left} more for the next koi`;
+        drawCoachLabel(leadKoi.x, leadKoi.y + 38 * worldScale, label, '#5eead4', 0.9);
+      }
+    }
+
+    if (coach.step === 'sell' && school.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = `rgba(94, 234, 212, ${0.3 + pulse * 0.5})`;
+      ctx.lineWidth = 3 * worldScale;
+      ctx.beginPath();
+      ctx.arc(pier.basketX, pier.basketY, pier.radius + (6 + pulse * 8) * worldScale, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+      const bob = Math.sin(totalTime * 4) * 4;
+      // Sits under the pier's status pill so the two never overlap.
+      drawCoachLabel(pier.cx, pier.y + pier.h + 52 * worldScale + bob, '\u2191 Swim into the ring to sell', '#5eead4');
+    }
+
+    if (coach.hazardLabel) {
+      const ref = coach.hazardLabel.ref;
+      const a = Math.min(1, coach.hazardLabel.life);
+      drawCoachLabel(ref.x, ref.y - (ref.r || 30) - 26 * worldScale, 'Red = danger. Steer clear!', '#ff4d67', a);
+    }
+  }
+
+  function renderTouchJoystick() {
+    if (!joystick.active) return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(joystick.originX, joystick.originY, 48, 0, TAU);
+    ctx.fillStyle = 'rgba(10, 26, 36, 0.38)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(164, 206, 224, 0.38)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(joystick.currX, joystick.currY, 20, 0, TAU);
+    ctx.fillStyle = 'rgba(94, 234, 212, 0.65)';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function renderFrame() {
+    ctx.save();
+
+    if (shakeTime > 0) {
+      const k = Math.min(1, shakeTime / Math.max(0.01, shakeDur));
+      const sx = (Math.random() - 0.5) * 2 * shakeMag * k;
+      const sy = (Math.random() - 0.5) * 2 * shakeMag * k;
+      ctx.translate(sx, sy);
+    }
+
+    // Layer 1: Cached Pond Floor & Soft Caustics
+    ctx.drawImage(floorCanvas, 0, 0, W, H);
+    renderCaustics();
+    renderLotusShrines();
+
+    // Expanding Water Ripples
+    for (const rp of ripples) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, rp.life);
+      ctx.strokeStyle = rp.color;
+      ctx.lineWidth = rp.lineWidth * worldScale;
+      ctx.beginPath();
+      ctx.arc(rp.x, rp.y, rp.r, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Layer 2: Market Pier, Food, Koi School & Enemies
+    renderMarketPier();
+    renderFoods();
+
+    for (let i = school.length - 1; i >= 0; i--) {
+      renderIKKoi(school[i]);
+    }
+    if (leadKoi) {
+      renderIKKoi(leadKoi);
+    }
+
+    renderTurtles();
+    renderHerons();
+
+    // Layer 3: Surface Lily Pads, Particles, Popups & Coin Flights
+    renderSurfaceLilies();
+
+    for (const p of particles) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Animated Harvest Coins flying to Yen HUD
+    for (const cf of coinFlights) {
+      if (cf.t <= 0) continue;
+      ctx.save();
+      ctx.fillStyle = '#ffd269';
+      ctx.strokeStyle = '#7c4d0b';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cf.x, cf.y, 7 * worldScale, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // World-Space Floating Text Popups
+    if (popups.length > 0) {
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (const pop of popups) {
+        ctx.globalAlpha = Math.max(0, Math.min(1, pop.life * 1.35));
+        const fontSize = Math.round((pop.big ? 14 : 12) * worldScale);
+        ctx.font = `800 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+        ctx.fillStyle = 'rgba(4, 11, 16, 0.85)';
+        ctx.fillText(pop.text, pop.x + 1, pop.y + 1.5);
+        ctx.fillStyle = pop.color;
+        ctx.fillText(pop.text, pop.x, pop.y);
+      }
+      ctx.restore();
+    }
+
+    renderCoach();
+    renderTouchJoystick();
+
+    ctx.restore();
+  }
+
+  /* =========================================================================
+     10. MAIN LOOP (GUARANTEED UNCONDITIONAL START)
+     ========================================================================= */
+  function frame(now) {
+    const dt = Math.min((now - lastTime) / 1000, 0.05);
+    lastTime = now;
+
+    if (shakeTime > 0) shakeTime = Math.max(0, shakeTime - dt);
+    if (state === 'playing') {
+      let simDt = dt;
+      if (hitStop > 0) {
+        hitStop = Math.max(0, hitStop - dt);
+        simDt = dt * 0.12;
+      }
+      totalTime += simDt;
+      update(simDt);
+    } else {
+      totalTime += dt * 0.45;
+      if (leadKoi) updateIKChain(leadKoi, dt, 0.55);
+      for (const fk of school) updateIKChain(fk, dt, 0.5);
+    }
+
+    renderFrame();
+    syncHUD();
+    requestAnimationFrame(frame);
+  }
+
+  /* =========================================================================
+     11. ZERO-THRASH HUD & MOBILE BOTTOM SHEETS
+     ========================================================================= */
+  const elYenWrap = document.getElementById('yen-display');
+  const elYenVal = document.getElementById('yen-val');
+  const elSchoolVal = document.getElementById('school-val');
+  const elPassiveVal = document.getElementById('passive-val');
+  const elComboPill = document.getElementById('combo-pill');
+  const elComboVal = document.getElementById('combo-val');
+  const elOrderPill = document.getElementById('order-pill');
+  const elOrderTag = document.getElementById('order-tag');
+  const elOrderReqs = document.getElementById('order-reqs');
+  const elOrderBonus = document.getElementById('order-bonus');
+  const elMobOrderBtn = document.getElementById('mobile-order-btn');
+  const elMobOrderLabel = document.getElementById('mob-order-label');
+  const elMobOrderPopover = document.getElementById('mobile-order-popover');
+  const elShopNotif = document.getElementById('shop-notif');
+  const elDashBtn = document.getElementById('dash-btn');
+  const elDashArc = document.getElementById('dash-ring-arc');
+  const elGrowFill = document.getElementById('grow-fill');
+  let cachedGrowPct = -1;
+
+  let cachedYenStr = '';
+  let cachedSchoolStr = '';
+  let cachedPassiveStr = '';
+  let cachedComboStr = '';
+  let cachedOrderSig = '';
+  let yenPopTimer = null;
+
+  function triggerYenPop() {
+    elYenWrap.classList.add('pop');
+    clearTimeout(yenPopTimer);
+    yenPopTimer = setTimeout(() => elYenWrap.classList.remove('pop'), 220);
+  }
+
+  function syncHUD() {
+    const yStr = save.yen.toLocaleString();
+    if (yStr !== cachedYenStr) {
+      cachedYenStr = yStr;
+      elYenVal.textContent = yStr;
+    }
+
+    const sStr = String(school.length);
+    if (sStr !== cachedSchoolStr) {
+      cachedSchoolStr = sStr;
+      elSchoolVal.textContent = sStr;
+    }
+
+    const gPct = Math.round(Math.max(0, Math.min(1, growthXp / Math.max(1, growthNeeded))) * 20) * 5;
+    if (gPct !== cachedGrowPct) {
+      cachedGrowPct = gPct;
+      elGrowFill.style.width = gPct + '%';
+    }
+
+    const pStr = `+${computePassiveRate()}¥/s`;
+    if (pStr !== cachedPassiveStr) {
+      cachedPassiveStr = pStr;
+      elPassiveVal.textContent = pStr;
+    }
+
+    const showCombo = comboHits >= 2 && comboTimer > 0;
+    elComboPill.classList.toggle('active', showCombo);
+    if (showCombo) {
+      const cStr = `x${comboMult.toFixed(2).replace(/\.00$/, '.0')}`;
+      if (cStr !== cachedComboStr) {
+        cachedComboStr = cStr;
+        elComboVal.textContent = cStr;
+      }
+    }
+
+    // Market Order Pill & Mobile Badge
+    const ord = evaluateOrderProgress();
+    const sig = `${save.orderIdx}:${ord.details.map(d => `${d.have}/${d.need}`).join(',')}`;
+    if (sig !== cachedOrderSig) {
+      cachedOrderSig = sig;
+      elOrderPill.classList.toggle('ready', ord.complete);
+      elMobOrderBtn.classList.toggle('ready', ord.complete);
+      elOrderTag.textContent = ord.complete ? 'READY TO SELL' : ord.order.title;
+      elOrderBonus.textContent = `+${Math.round(ord.order.bonus * 100)}%`;
+
+      const chipsHtml = ord.details.map(d => {
+        const v = VARIETIES[d.variety];
+        return `<span class="req-chip${d.met ? ' done' : ''}"><span class="req-dot" style="background:${v.swatch};"></span>${v.name} ${d.have}/${d.need}</span>`;
+      }).join('');
+      elOrderReqs.innerHTML = chipsHtml;
+
+      const totalHave = ord.details.reduce((acc, d) => acc + Math.min(d.have, d.need), 0);
+      const totalNeed = ord.details.reduce((acc, d) => acc + d.need, 0);
+      elMobOrderLabel.textContent = ord.complete ? 'Order Ready!' : `Order: ${totalHave}/${totalNeed}`;
+
+      document.getElementById('mob-pop-title').textContent = ord.order.title;
+      document.getElementById('mob-pop-bonus').textContent = `+${Math.round(ord.order.bonus * 100)}% Bonus`;
+      document.getElementById('mob-pop-reqs').innerHTML = chipsHtml;
+      elOrderPill.title = `${ord.order.title}: have these koi in your school when you sell for +${Math.round(ord.order.bonus * 100)}%`;
+    }
+
+    // Shop Notification Dot
+    elShopNotif.classList.toggle('show', canAffordAnyShopItem());
+
+    // Mobile Dash Button Radial Ring
+    if (inputMode === 'touch' && state === 'playing') {
+      elDashBtn.classList.add('visible');
+      const ratio = Math.max(0, Math.min(1, stamina / getMaxStamina()));
+      const offset = 188.5 * (1 - ratio);
+      elDashArc.setAttribute('stroke-dashoffset', offset.toFixed(1));
+    } else {
+      elDashBtn.classList.remove('visible');
+    }
+  }
+
+  /* =========================================================================
+     12. FARM SHOP & SETTINGS SHEET LOGIC
+     ========================================================================= */
+  const shopOverlay = document.getElementById('shop-overlay');
+  const settingsOverlay = document.getElementById('settings-overlay');
+  const shopGrid = document.getElementById('shop-grid');
+  const shopYenVal = document.getElementById('shop-yen-val');
+  const tabVarieties = document.getElementById('tab-varieties');
+  const tabUpgrades = document.getElementById('tab-upgrades');
+  let activeShopTab = 'varieties';
+
+  const toastEl = document.getElementById('toast');
+  let toastTimer = null;
+  function showToast(title, sub = '') {
+    toastEl.innerHTML = `<strong>${title}</strong>${sub ? `<span>${sub}</span>` : ''}`;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2300);
+  }
+
+  function openShop() {
+    elMobOrderPopover.classList.remove('open');
+    settingsOverlay.classList.remove('open');
+    state = 'shop';
+    shopOverlay.classList.add('open');
+    renderShop();
+  }
+
+  function closeShop() {
+    shopOverlay.classList.remove('open');
+    state = 'playing';
+    if (leadKoi) {
+      leadKoi.variety = getActiveVariety(0);
+    }
+    syncHUD();
+  }
+
+  function renderShop() {
+    shopYenVal.textContent = `¥${save.yen.toLocaleString()}`;
+    tabVarieties.classList.toggle('active', activeShopTab === 'varieties');
+    tabUpgrades.classList.toggle('active', activeShopTab === 'upgrades');
+    shopGrid.innerHTML = '';
+
+    if (activeShopTab === 'varieties') {
+      for (const key of VARIETY_KEYS) {
+        const v = VARIETIES[key];
+        const unlocked = save.unlocked.includes(key);
+        const equipped = !save.mixedSchool && save.equipped === key;
+        const card = document.createElement('div');
+        card.className = `item-card${equipped ? ' equipped' : ''}`;
+        card.innerHTML = `
+          <div>
+            <div class="item-top">
+              <div class="item-title"><span class="koi-swatch" style="background:${v.swatch};"></span>${v.name}</div>
+              <span class="item-badge">${unlocked ? (equipped ? 'EQUIPPED' : 'UNLOCKED') : '¥' + v.cost.toLocaleString()}</span>
+            </div>
+            <div class="item-desc" style="margin-top:6px;">${v.trait}</div>
+          </div>
+          <div class="item-footer">
+            <span style="font-size:11.5px;color:var(--text-muted);">Sell Value: ${v.mult.toFixed(1)}×</span>
+            <button class="action-btn${unlocked && !equipped ? ' equip-ready' : ''}" type="button"
+              data-act="${unlocked ? 'equip' : 'buy-var'}" data-id="${key}"
+              ${(!unlocked && save.yen < v.cost) || equipped ? 'disabled' : ''}>
+              ${equipped ? 'Active' : (unlocked ? 'Equip' : 'Unlock ¥' + v.cost.toLocaleString())}
+            </button>
+          </div>
+        `;
+        shopGrid.appendChild(card);
+      }
+
+      // Mixed School Card
+      const canMix = save.unlocked.length >= 2;
+      const isMix = save.mixedSchool;
+      const mixCard = document.createElement('div');
+      mixCard.className = `item-card${isMix ? ' equipped' : ''}`;
+      mixCard.innerHTML = `
+        <div>
+          <div class="item-top">
+            <div class="item-title"><span class="koi-swatch" style="background:conic-gradient(#e23d28, #ffd269, #4c7cc9, #fcfbf8);"></span>Mixed School</div>
+            <span class="item-badge">${isMix ? 'EQUIPPED' : (canMix ? 'AVAILABLE' : 'UNLOCK 2+ BREEDS')}</span>
+          </div>
+          <div class="item-desc" style="margin-top:6px;">Spawns a rotating school of all unlocked koi varieties with all passive traits active!</div>
+        </div>
+        <div class="item-footer">
+          <span style="font-size:11.5px;color:var(--text-muted);">${save.unlocked.length}/5 Breeds</span>
+          <button class="action-btn${canMix && !isMix ? ' equip-ready' : ''}" type="button"
+            data-act="equip-mix" data-id="mixed" ${!canMix || isMix ? 'disabled' : ''}>
+            ${isMix ? 'Active' : 'Equip Mix'}
+          </button>
+        </div>
+      `;
+      shopGrid.appendChild(mixCard);
+    } else {
+      for (const up of UPGRADES) {
+        const lvl = save.upgrades[up.id] || 0;
+        const isMax = lvl >= up.maxLvl;
+        const cost = Math.round(up.baseCost * Math.pow(up.scale, lvl));
+        let pips = '';
+        for (let i = 0; i < up.maxLvl; i++) {
+          pips += `<span class="pip${i < lvl ? ' on' : ''}"></span>`;
+        }
+        const card = document.createElement('div');
+        card.className = 'item-card';
+        card.innerHTML = `
+          <div>
+            <div class="item-top">
+              <div class="item-title">${up.name}</div>
+              <span class="item-badge">Lv ${lvl}/${up.maxLvl}</span>
+            </div>
+            <div class="item-desc" style="margin-top:6px;">${up.desc}</div>
+          </div>
+          <div class="item-footer">
+            <div class="pips">${pips}</div>
+            <button class="action-btn" type="button" data-act="buy-upg" data-id="${up.id}"
+              ${isMax || save.yen < cost ? 'disabled' : ''}>
+              ${isMax ? 'Maxed' : 'Upgrade ¥' + cost.toLocaleString()}
+            </button>
+          </div>
+        `;
+        shopGrid.appendChild(card);
+      }
+    }
+  }
+
+  shopGrid.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn || btn.disabled) return;
+    const act = btn.dataset.act;
+    const id = btn.dataset.id;
+
+    if (act === 'buy-var') {
+      const v = VARIETIES[id];
+      if (save.yen >= v.cost && !save.unlocked.includes(id)) {
+        save.yen -= v.cost;
+        save.unlocked.push(id);
+        save.equipped = id;
+        save.mixedSchool = false;
+        KoiAnalytics.track('shop_upgrade', { category: 'variety', item: id, level: 1, cost: v.cost });
+        Sound.kotoArpeggio(4, 1);
+        persist();
+        renderShop();
+        syncHUD();
+        showToast(`Unlocked ${v.name}!`, v.trait);
+      }
+    } else if (act === 'equip') {
+      save.equipped = id;
+      save.mixedSchool = false;
+      Sound.plop(4, true);
+      persist();
+      renderShop();
+    } else if (act === 'equip-mix') {
+      if (save.unlocked.length >= 2) {
+        save.mixedSchool = true;
+        Sound.plop(5, true);
+        persist();
+        renderShop();
+      }
+    } else if (act === 'buy-upg') {
+      const up = UPGRADES.find(u => u.id === id);
+      const lvl = save.upgrades[id] || 0;
+      const cost = Math.round(up.baseCost * Math.pow(up.scale, lvl));
+      if (lvl < up.maxLvl && save.yen >= cost) {
+        save.yen -= cost;
+        save.upgrades[id] = lvl + 1;
+        KoiAnalytics.track('shop_upgrade', { category: 'upgrade', item: id, level: lvl + 1, cost });
+        Sound.kotoArpeggio(3, 3);
+        if (id === 'shrines') rebuildLiliesAndShrines();
+        persist();
+        renderShop();
+        syncHUD();
+        showToast(`${up.name} Lv ${lvl + 1}`, up.desc);
+      }
+    }
+  });
+
+  // Settings Sheet Logic
+  let resetArmed = false;
+  let resetArmTimer = null;
+  const btnResetSave = document.getElementById('btn-reset-save');
+
+  function syncSettingsUI() {
+    document.getElementById('set-mode-arcade').classList.toggle('active', save.mode === 'arcade');
+    document.getElementById('set-mode-zen').classList.toggle('active', save.mode === 'zen');
+    document.getElementById('set-touch-joy').classList.toggle('active', save.touchStyle === 'joystick');
+    document.getElementById('set-touch-follow').classList.toggle('active', save.touchStyle === 'follow');
+    document.getElementById('set-sound-on').classList.toggle('active', save.soundOn);
+    document.getElementById('set-sound-off').classList.toggle('active', !save.soundOn);
+  }
+
+  function openSettings() {
+    elMobOrderPopover.classList.remove('open');
+    shopOverlay.classList.remove('open');
+    state = 'settings';
+    resetArmed = false;
+    btnResetSave.classList.remove('armed');
+    btnResetSave.textContent = 'Reset Save';
+    syncSettingsUI();
+    settingsOverlay.classList.add('open');
+  }
+
+  function closeSettings() {
+    settingsOverlay.classList.remove('open');
+    state = 'playing';
+    syncHUD();
+  }
+
+  /* =========================================================================
+     13. EVENT LISTENERS (DESKTOP, MOBILE TOUCH, JOYSTICK & SHEETS)
+     ========================================================================= */
+  document.getElementById('btn-enter-pond').addEventListener('click', () => {
+    Sound.unlock();
+    Sound.kotoArpeggio(3, 0);
+    document.getElementById('start-overlay').classList.remove('open');
+    state = 'playing';
+    runTime = 0;
+    fireGameStartOnce();
+    if (!hintDismissed) {
+      const hint = document.getElementById('control-hint');
+      hint.textContent = inputMode === 'touch'
+        ? 'Drag anywhere to steer \u2022 Hold \u26A1 to dash'
+        : 'Steer with the mouse or WASD \u2022 Hold click or Space to dash';
+      hint.classList.add('show');
+    }
+    syncHUD();
+  });
+
+  document.getElementById('btn-open-shop').addEventListener('click', openShop);
+  document.getElementById('btn-close-shop').addEventListener('click', closeShop);
+  tabVarieties.addEventListener('click', () => { activeShopTab = 'varieties'; renderShop(); });
+  tabUpgrades.addEventListener('click', () => { activeShopTab = 'upgrades'; renderShop(); });
+
+  document.getElementById('btn-open-settings').addEventListener('click', openSettings);
+  document.getElementById('btn-close-settings').addEventListener('click', closeSettings);
+
+  document.getElementById('set-mode-arcade').addEventListener('click', () => {
+    save.mode = 'arcade';
+    persist();
+    syncSettingsUI();
+    runTime = Math.max(runTime, 6);
+  });
+  document.getElementById('set-mode-zen').addEventListener('click', () => {
+    save.mode = 'zen';
+    turtles.length = 0;
+    herons.length = 0;
+    persist();
+    syncSettingsUI();
+  });
+  document.getElementById('set-touch-joy').addEventListener('click', () => {
+    save.touchStyle = 'joystick';
+    persist();
+    syncSettingsUI();
+  });
+  document.getElementById('set-touch-follow').addEventListener('click', () => {
+    save.touchStyle = 'follow';
+    persist();
+    syncSettingsUI();
+  });
+  document.getElementById('set-sound-on').addEventListener('click', () => {
+    save.soundOn = true;
+    Sound.unlock();
+    Sound.plop(3, false);
+    persist();
+    syncSettingsUI();
+  });
+  document.getElementById('set-sound-off').addEventListener('click', () => {
+    save.soundOn = false;
+    persist();
+    syncSettingsUI();
+  });
+
+  btnResetSave.addEventListener('click', () => {
+    if (!resetArmed) {
+      resetArmed = true;
+      btnResetSave.classList.add('armed');
+      btnResetSave.textContent = 'Tap again to confirm';
+      clearTimeout(resetArmTimer);
+      resetArmTimer = setTimeout(() => {
+        resetArmed = false;
+        btnResetSave.classList.remove('armed');
+        btnResetSave.textContent = 'Reset Save';
+      }, 3200);
+    } else {
+      resetArmed = false;
+      clearTimeout(resetArmTimer);
+      const keepPid = save.pid;
+      save = createDefaultSave();
+      save.pid = keepPid;
+      save.sessions = 1;
+      persist(true);
+      cachedYenStr = '';
+      cachedOrderSig = '';
+      rebuildLiliesAndShrines();
+      initPond();
+      syncSettingsUI();
+      syncHUD();
+      showToast('Farm Reset', 'Starting fresh with a new Kohaku pond.');
+    }
+  });
+
+  // Backdrop click to dismiss sheets
+  shopOverlay.addEventListener('click', (e) => { if (e.target === shopOverlay) closeShop(); });
+  settingsOverlay.addEventListener('click', (e) => { if (e.target === settingsOverlay) closeSettings(); });
+
+  // Order Pill / Mobile Order Popover
+  elOrderPill.addEventListener('click', () => {
+    const ord = evaluateOrderProgress();
+    showToast(
+      ord.complete ? 'Order Ready!' : ord.order.title,
+      ord.complete
+        ? 'Swim into the top-right Market Pier to claim your bonus!'
+        : 'Grow the listed Koi varieties in your school, then swim into the Market Pier.'
+    );
+  });
+
+  elMobOrderBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    elMobOrderPopover.classList.toggle('open');
+  });
+
+  // Keyboard Steering & Shortcuts
+  window.addEventListener('keydown', (e) => {
+    const k = e.key.toLowerCase();
+    if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) {
+      e.preventDefault();
+    }
+    if (state === 'welcome' && (k === 'enter' || k === ' ')) {
+      document.getElementById('btn-enter-pond').click();
+      return;
+    }
+    keys.add(k);
+    if (k === 'escape') {
+      if (state === 'shop') closeShop();
+      else if (state === 'settings') closeSettings();
+      elMobOrderPopover.classList.remove('open');
+    }
+  });
+  window.addEventListener('keyup', (e) => {
+    keys.delete(e.key.toLowerCase());
+  });
+
+  // Track the pointer type actually in use so touchscreen laptops still steer
+  // with the mouse, and phones never fall back to cursor-follow steering.
+  function noteInput(e) {
+    if (!e.pointerType) return;
+    const next = e.pointerType === 'mouse' ? 'mouse' : 'touch';
+    if (next !== inputMode) {
+      inputMode = next;
+      if (next === 'touch') pointer.active = false;
+    }
+  }
+  window.addEventListener('pointerdown', noteInput, { passive: true });
+  window.addEventListener('pointermove', noteInput, { passive: true });
+
+  // Audio unlock on the first real gesture of any kind (iOS needs touchend/click).
+  const unlockOnce = () => Sound.unlock();
+  ['pointerdown', 'touchend', 'click', 'keydown'].forEach(ev => {
+    window.addEventListener(ev, unlockOnce, { passive: true, capture: true });
+  });
+  document.addEventListener('visibilitychange', () => Sound.suspendIfHidden());
+
+  // Mouse Steering
+  canvas.addEventListener('mousemove', (e) => {
+    if (inputMode === 'touch') return;
+    pointer.x = e.clientX;
+    pointer.y = e.clientY;
+    pointer.active = true;
+  });
+  canvas.addEventListener('mousedown', (e) => {
+    if (inputMode === 'touch') return;
+    Sound.unlock();
+    elMobOrderPopover.classList.remove('open');
+    pointer.x = e.clientX;
+    pointer.y = e.clientY;
+    pointer.active = true;
+    pointer.down = true;
+  });
+  window.addEventListener('mouseup', () => {
+    pointer.down = false;
+  });
+
+  // Touch Steering & Floating Virtual Joystick
+  canvas.addEventListener('touchstart', (e) => {
+    isTouchDevice = true;
+    inputMode = 'touch';
+    Sound.unlock();
+    elMobOrderPopover.classList.remove('open');
+
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (save.touchStyle === 'joystick' && !joystick.active) {
+        joystick.active = true;
+        joystick.id = t.identifier;
+        joystick.originX = t.clientX;
+        joystick.originY = t.clientY;
+        joystick.currX = t.clientX;
+        joystick.currY = t.clientY;
+        joystick.dx = 0;
+        joystick.dy = 0;
+        joystick.mag = 0;
+      } else {
+        pointer.x = t.clientX;
+        pointer.y = t.clientY;
+        pointer.active = true;
+      }
+    }
+  }, { passive: true });
+
+  canvas.addEventListener('touchmove', (e) => {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (joystick.active && t.identifier === joystick.id) {
+        const rawDx = t.clientX - joystick.originX;
+        const rawDy = t.clientY - joystick.originY;
+        const maxR = 48;
+        const dist = Math.hypot(rawDx, rawDy);
+        const clamped = Math.min(maxR, dist);
+        const ang = Math.atan2(rawDy, rawDx);
+        // Floating base: drag past the rim and the base follows the thumb,
+        // so a reversal responds instantly instead of crossing a dead zone.
+        if (dist > maxR) {
+          joystick.originX = t.clientX - Math.cos(ang) * maxR;
+          joystick.originY = t.clientY - Math.sin(ang) * maxR;
+        }
+        joystick.currX = joystick.originX + Math.cos(ang) * clamped;
+        joystick.currY = joystick.originY + Math.sin(ang) * clamped;
+        joystick.dx = Math.cos(ang);
+        joystick.dy = Math.sin(ang);
+        joystick.mag = clamped / maxR;
+      } else {
+        pointer.x = t.clientX;
+        pointer.y = t.clientY;
+        pointer.active = true;
+      }
+    }
+  }, { passive: true });
+
+  function handleTouchEnd(e) {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (joystick.active && t.identifier === joystick.id) {
+        joystick.active = false;
+        joystick.id = null;
+        joystick.mag = 0;
+      }
+    }
+  }
+  canvas.addEventListener('touchend', handleTouchEnd, { passive: true });
+  canvas.addEventListener('touchcancel', handleTouchEnd, { passive: true });
+
+  // Ergonomic Mobile Dash Button
+  elDashBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    Sound.unlock();
+    touchDashHeld = true;
+    elDashBtn.classList.add('active');
+  }, { passive: false });
+  elDashBtn.addEventListener('touchend', () => {
+    touchDashHeld = false;
+    elDashBtn.classList.remove('active');
+  }, { passive: true });
+  elDashBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+  elDashBtn.addEventListener('touchcancel', () => {
+    touchDashHeld = false;
+    elDashBtn.classList.remove('active');
+  }, { passive: true });
+
+  let resizeQueued = false;
+  function queueResize() {
+    if (resizeQueued) return;
+    resizeQueued = true;
+    requestAnimationFrame(() => { resizeQueued = false; resize(); });
+  }
+  window.addEventListener('resize', queueResize);
+  window.addEventListener('orientationchange', queueResize);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', queueResize);
+  }
+
+  /* =========================================================================
+     14. INITIALIZATION (SAFE FOR SANDBOXED IFRAMES & DELAYED MOUNT)
+     ========================================================================= */
+  try {
+    isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    inputMode = coarse ? 'touch' : 'mouse';
+  } catch (_) {
+    isTouchDevice = false;
+  }
+
+  resize();
+  initPond();
+  syncHUD();
+
+  // QA hook, only with ?debug=... in the URL. Read-only views for test bots.
+  if (safeGetQueryParam('debug')) {
+    window.__koi = {
+      get lead() { return leadKoi; }, foods, school, turtles, herons, pier,
+      get runTime() { return runTime; }, get coachStep() { return coach.step; }
+    };
+  }
+
+  // Catch delayed iframe layout sizing on next frame
+  requestAnimationFrame(() => {
+    resize();
+    syncHUD();
+  });
+
+  // Start main loop unconditionally
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

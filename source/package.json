@@ -1,0 +1,15 @@
+{
+  "name": "koi-sanctuary",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Koi Sanctuary: a one-minute ink-wash koi pond game. Single-file HTML5 canvas.",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "deploy": "node scripts/deploy.mjs",
+    "preview": "npx --yes serve public -l 4173"
+  }
+}

@@ -174,6 +174,171 @@
     transition: width 0.2s ease;
   }
 
+  /* =========================================================
+     COVER / SPLASH SCREEN (live pond behind, one tap to play)
+     ========================================================= */
+  .splash {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: calc(24px + var(--safe-top)) 20px calc(24px + var(--safe-bottom));
+    background:
+      radial-gradient(ellipse at 50% 42%, rgba(7, 19, 26, 0.35) 0%, rgba(4, 11, 16, 0.82) 70%, rgba(3, 8, 12, 0.94) 100%);
+    backdrop-filter: blur(2.5px);
+    -webkit-backdrop-filter: blur(2.5px);
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1), backdrop-filter 0.7s ease;
+  }
+  .splash.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .splash.leaving {
+    opacity: 0;
+    transform: scale(1.06);
+    pointer-events: none;
+  }
+  .splash-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 14px;
+    max-width: 520px;
+  }
+  .splash-inner > * {
+    opacity: 0;
+    transform: translateY(14px);
+    animation: splashIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  }
+  .splash-inner > *:nth-child(1) { animation-delay: 0.05s; }
+  .splash-inner > *:nth-child(2) { animation-delay: 0.18s; }
+  .splash-inner > *:nth-child(3) { animation-delay: 0.28s; }
+  .splash-inner > *:nth-child(4) { animation-delay: 0.42s; }
+  .splash-inner > *:nth-child(5) { animation-delay: 0.52s; }
+  .splash-inner > *:nth-child(6) { animation-delay: 0.68s; }
+  .splash-inner > *:nth-child(7) { animation-delay: 0.74s; }
+  .splash-inner > *:nth-child(n+8) { animation-delay: 0.86s; }
+  @keyframes splashIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .splash-crest {
+    filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.6));
+    animation: splashIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards, crestFloat 5s ease-in-out 1s infinite !important;
+  }
+  @keyframes crestFloat {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-6px) rotate(-3deg); }
+  }
+  .splash-kicker {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+  .splash-title {
+    margin: 0;
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
+    font-weight: 700;
+    font-size: clamp(52px, 13vw, 96px);
+    line-height: 0.95;
+    letter-spacing: -0.5px;
+    color: #f4f9fb;
+    text-shadow: 0 6px 30px rgba(0, 0, 0, 0.75);
+  }
+  .splash-brush {
+    width: min(260px, 62vw);
+    height: 14px;
+    margin-top: -6px;
+  }
+  .splash-brush path {
+    stroke-dasharray: 340;
+    stroke-dashoffset: 340;
+    animation: brushDraw 1.1s ease-out 0.75s forwards;
+  }
+  @keyframes brushDraw {
+    to { stroke-dashoffset: 0; }
+  }
+  .splash-tag {
+    margin: 0;
+    font-size: clamp(15px, 4vw, 18px);
+    line-height: 1.45;
+    color: #c8dce7;
+  }
+  .splash-play {
+    margin-top: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-width: 200px;
+    min-height: 58px;
+    padding: 0 34px;
+    border: none;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #ffd269, #e59d2c);
+    color: #131b20;
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    cursor: pointer;
+    box-shadow: 0 10px 34px rgba(229, 157, 44, 0.45);
+    position: relative;
+  }
+  .splash-play::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 999px;
+    border: 2px solid rgba(255, 210, 105, 0.55);
+    animation: playPulse 2.2s ease-out 1.6s infinite;
+    opacity: 0;
+  }
+  @keyframes playPulse {
+    0% { transform: scale(0.96); opacity: 0.9; }
+    100% { transform: scale(1.22); opacity: 0; }
+  }
+  .splash-play:active {
+    transform: scale(0.96);
+  }
+  .splash-play:focus-visible {
+    outline: 3px solid #5eead4;
+    outline-offset: 4px;
+  }
+  .splash-welcome {
+    font-size: 13px;
+    color: var(--emerald);
+    font-weight: 700;
+  }
+  .splash-hint {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(18px + var(--safe-bottom));
+    text-align: center;
+    font-size: 12px;
+    color: rgba(200, 220, 231, 0.55);
+    opacity: 0;
+    animation: splashIn 0.9s ease forwards 1.4s;
+  }
+  body.splash-active #hud-layer {
+    opacity: 0;
+  }
+  #hud-layer {
+    transition: opacity 0.6s ease 0.2s;
+  }
+  @media (max-height: 560px) {
+    .splash-crest, .splash-hint, .welcome-note { display: none; }
+    .splash-inner { gap: 8px; }
+    .splash-title { font-size: clamp(40px, 9vw, 64px); }
+  }
+
   .loop-chips {
     display: flex;
     align-items: center;
@@ -904,7 +1069,7 @@
   }
 </style>
 </head>
-<body>
+<body class="splash-active">
 
 <canvas id="pond-canvas"></canvas>
 
@@ -985,34 +1150,38 @@
 <!-- =========================================================
      WELCOME OVERLAY
      ========================================================= -->
-<div id="start-overlay" class="overlay open">
-  <div class="sheet-card welcome-card">
-    <div class="sheet-body" style="padding-top:22px;">
-      <div class="welcome-crest">
-        <svg width="44" height="44" viewBox="0 0 64 64">
-          <path d="M12 38c7-14 23-21 37-14-5 12-14 23-30 25l-9 6 4-13z" fill="#f8f5ef"/>
-          <path d="M23 27c8-5 17-5 24-1-3 6-8 12-16 14-5-2-8-7-8-13z" fill="#e03e28"/>
-          <circle cx="43" cy="27" r="2.5" fill="#07131a"/>
-          <circle cx="18" cy="48" r="5.5" fill="#ffd269"/>
-        </svg>
-      </div>
-      <div>
-        <div class="sheet-title" style="font-size:20px;">Koi Sanctuary</div>
-        <div class="sheet-sub">A one-minute ink-wash pond game</div>
-      </div>
+<div id="start-overlay" class="splash open" role="dialog" aria-labelledby="splash-title">
+  <div class="splash-inner">
+    <svg class="splash-crest" width="78" height="78" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r="29" fill="none" stroke="rgba(255,210,105,0.35)" stroke-width="1.2"/>
+      <path d="M12 38c7-14 23-21 37-14-5 12-14 23-30 25l-9 6 4-13z" fill="#f8f5ef"/>
+      <path d="M23 27c8-5 17-5 24-1-3 6-8 12-16 14-5-2-8-7-8-13z" fill="#e03e28"/>
+      <circle cx="43" cy="27" r="2.5" fill="#07131a"/>
+      <circle cx="18" cy="48" r="5.5" fill="#ffd269"/>
+    </svg>
+    <div class="splash-kicker">A one-minute pond game</div>
+    <h1 id="splash-title" class="splash-title">Koi<br>Sanctuary</h1>
+    <svg class="splash-brush" viewBox="0 0 320 18" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M4 11 C 70 3, 150 15, 230 7 S 300 9, 316 6" fill="none" stroke="#ffd269" stroke-width="3.2" stroke-linecap="round"/>
+    </svg>
+    <p class="splash-tag">Grow your school. Dodge the heron.<br>Cash out at the lantern pier.</p>
 
-      <div class="loop-chips" aria-label="Eat, grow your school, sell at the pier">
-        <span class="chip"><i style="background:#ffd269;"></i>Eat</span>
-        <span class="arrow">&rarr;</span>
-        <span class="chip"><i style="background:#f7f4ed;"></i>Grow school</span>
-        <span class="arrow">&rarr;</span>
-        <span class="chip"><i style="background:#5eead4;"></i>Sell at pier &#8599;</span>
-      </div>
-      <div class="welcome-note">Steer clear of anything <b>red</b>.</div>
+    <button id="btn-enter-pond" class="splash-play" type="button">
+      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12-7.5z" fill="currentColor"/></svg>
+      <span>Play</span>
+    </button>
+    <div id="splash-welcome" class="splash-welcome" hidden></div>
 
-      <button id="btn-enter-pond" class="primary-cta" type="button">Start Swimming</button>
+    <div class="loop-chips" aria-label="Eat, grow your school, sell at the pier">
+      <span class="chip"><i style="background:#ffd269;"></i>Eat</span>
+      <span class="arrow">&rarr;</span>
+      <span class="chip"><i style="background:#f7f4ed;"></i>Grow school</span>
+      <span class="arrow">&rarr;</span>
+      <span class="chip"><i style="background:#5eead4;"></i>Sell at pier &#8599;</span>
     </div>
+    <div class="welcome-note">Steer clear of anything <b>red</b>.</div>
   </div>
+  <div class="splash-hint">Tap anywhere to dive in</div>
 </div>
 
 <!-- =========================================================
@@ -1100,7 +1269,7 @@
 (() => {
   'use strict';
 
-  const BUILD = 'pilot-2';
+  const BUILD = 'pilot-3';
 
   // Safari < 16 and older Android WebViews lack roundRect; the pier and labels need it.
   if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
@@ -2317,8 +2486,16 @@
     coach.hazardLabel = null;
     hazardSpawnTimer = 4.0;
 
-    // A short trail of pellets curving away from the start teaches "swim into food".
-    if (isFirstRun()) {
+    seedFood();
+    // Hazards are introduced by update() after a grace period.
+    addRipple(leadKoi.x, leadKoi.y, 70);
+  }
+
+  // A short trail of pellets curving away from the koi teaches "swim into food".
+  // Spawned when play starts, because the koi drifts while the cover is showing.
+  function spawnOnboardingTrail() {
+    if (!isFirstRun() || !leadKoi) return;
+    {
       for (let i = 0; i < 4; i++) {
         const ang = leadKoi.angle + 0.35 * i;
         const d = (70 + i * 62) * worldScale;
@@ -2327,10 +2504,11 @@
         spawnFood('pellet', tx, ty);
       }
     }
+  }
+
+  function seedFood() {
     const initialFood = (isFirstRun() ? 3 : 6) + (save.upgrades.autofeeder || 0) * 2;
     for (let i = 0; i < initialFood; i++) spawnFood();
-    // Hazards are introduced by update() after a grace period.
-    addRipple(leadKoi.x, leadKoi.y, 70);
   }
 
   function addSchoolKoi(forcedVariety = null) {
@@ -4067,6 +4245,20 @@
       }
       totalTime += simDt;
       update(simDt);
+    } else if (state === 'welcome' && leadKoi) {
+      // Cover screen: the koi drifts in a slow circle behind the title.
+      totalTime += dt;
+      leadKoi.angle += 0.55 * dt;
+      leadKoi.x += Math.cos(leadKoi.angle) * 46 * worldScale * dt;
+      leadKoi.y += Math.sin(leadKoi.angle) * 46 * worldScale * dt;
+      updateIKChain(leadKoi, dt, 0.5);
+      for (let i = ripples.length - 1; i >= 0; i--) {
+        const rp = ripples[i];
+        rp.r += 78 * worldScale * dt;
+        rp.life = 1 - rp.r / rp.maxR;
+        if (rp.life <= 0) ripples.splice(i, 1);
+      }
+      if (Math.random() < dt * 0.6) addRipple(leadKoi.x, leadKoi.y, 60, 'rgba(215, 242, 255, 0.3)', 1.2);
     } else {
       totalTime += dt * 0.45;
       if (leadKoi) updateIKChain(leadKoi, dt, 0.55);
@@ -4397,12 +4589,37 @@
   /* =========================================================================
      13. EVENT LISTENERS (DESKTOP, MOBILE TOUCH, JOYSTICK & SHEETS)
      ========================================================================= */
+  // Tap anywhere on the cover starts the game (one tap, no extra friction).
+  document.getElementById('start-overlay').addEventListener('click', (e) => {
+    if (state !== 'welcome') return;
+    if (e.target.closest('#btn-enter-pond')) return;
+    document.getElementById('btn-enter-pond').click();
+  });
+
+  // Returning players see their treasury on the cover.
+  try {
+    if ((save.sessions || 1) > 1 && save.yen > 0) {
+      const w = document.getElementById('splash-welcome');
+      w.textContent = `Welcome back \u2022 \u00A5${save.yen.toLocaleString()} in your treasury`;
+      w.hidden = false;
+    }
+  } catch (_) {}
+
   document.getElementById('btn-enter-pond').addEventListener('click', () => {
+    if (state !== 'welcome') return;
     Sound.unlock();
     Sound.kotoArpeggio(3, 0);
-    document.getElementById('start-overlay').classList.remove('open');
+    const splash = document.getElementById('start-overlay');
+    splash.classList.add('leaving');
+    document.body.classList.remove('splash-active');
+    setTimeout(() => splash.classList.remove('open', 'leaving'), 750);
+    if (leadKoi) {
+      addRipple(leadKoi.x, leadKoi.y, 140, 'rgba(255, 210, 105, 0.7)', 2.4);
+      addRipple(leadKoi.x, leadKoi.y, 90, 'rgba(215, 242, 255, 0.5)', 1.6);
+    }
     state = 'playing';
     runTime = 0;
+    spawnOnboardingTrail();
     fireGameStartOnce();
     if (!hintDismissed) {
       const hint = document.getElementById('control-hint');
@@ -4481,6 +4698,7 @@
       cachedOrderSig = '';
       rebuildLiliesAndShrines();
       initPond();
+      spawnOnboardingTrail();
       syncSettingsUI();
       syncHUD();
       showToast('Farm Reset', 'Starting fresh with a new Kohaku pond.');

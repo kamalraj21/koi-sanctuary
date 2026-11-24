@@ -1100,7 +1100,7 @@
 (() => {
   'use strict';
 
-  const BUILD = 'pilot-1';
+  const BUILD = 'pilot-2';
 
   // Safari < 16 and older Android WebViews lack roundRect; the pier and labels need it.
   if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
@@ -1846,6 +1846,8 @@
   let firstRunMovedDist = 0;
   let hintDismissed = false;
   let runTime = 0;          // seconds of active play since the pond was entered
+  let idleTime = 0;         // seconds since the player last steered or dashed
+  let hasSteered = false;   // selling only counts once a real player has steered
   let hitStop = 0;          // brief slow-motion on impactful hits
   let shakeDur = 0.25;
   let inputMode = 'mouse';  // 'mouse' | 'touch', follows the last real pointer used
@@ -2309,6 +2311,7 @@
     leadInvuln = 1.2;
 
     runTime = 0;
+    idleTime = 0;
     coach.step = 'eat';
     coach.hazardShown = false;
     coach.hazardLabel = null;
@@ -2450,7 +2453,7 @@
     if (state !== 'playing' || !leadKoi) return;
 
     // Pilot Analytics: 60s visible active play session_ping
-    if (safeIsVisible()) {
+    if (safeIsVisible() && idleTime < 30) {
       activePlaySec += dt;
       if (activePlaySec >= 60) {
         activePlaySec -= 60;
@@ -2533,8 +2536,19 @@
       stamina = Math.min(maxStam, stamina + 24 * regenMult * dt);
     }
 
+    // Idle: with no steering for 4 s the koi slows and circles in place, so an
+    // unattended tab does not play itself (and inflate first-harvest metrics).
+    if (desiredAngle !== null || isDashing) {
+      idleTime = 0;
+      hasSteered = true;
+    } else {
+      idleTime += dt;
+    }
+    const isIdle = idleTime > 4;
+    if (isIdle) leadKoi.angle += 0.7 * dt;
+
     const baseSpeed = 148 * worldScale;
-    const targetSpeed = isDashing ? baseSpeed * 1.68 : baseSpeed;
+    const targetSpeed = isDashing ? baseSpeed * 1.68 : (isIdle ? baseSpeed * 0.35 : baseSpeed);
     leadKoi.speed += (targetSpeed - leadKoi.speed) * Math.min(1, dt * 7);
 
     const step = leadKoi.speed * dt;
@@ -2655,7 +2669,7 @@
     }
 
     // 3. Market Pier Harvest Ring Charge
-    if (inPierZone && school.length > 0) {
+    if (inPierZone && school.length > 0 && hasSteered && !isIdle) {
       harvestCharge += dt / 0.85;
       if (harvestCharge >= 1.0) {
         executeHarvest();
@@ -4671,7 +4685,8 @@
   if (safeGetQueryParam('debug')) {
     window.__koi = {
       get lead() { return leadKoi; }, foods, school, turtles, herons, pier,
-      get runTime() { return runTime; }, get coachStep() { return coach.step; }
+      get runTime() { return runTime; }, get coachStep() { return coach.step; },
+      get idleTime() { return idleTime; }
     };
   }
 

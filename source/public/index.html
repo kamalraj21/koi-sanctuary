@@ -1315,7 +1315,7 @@
 (() => {
   'use strict';
 
-  const BUILD = 'pilot-7';
+  const BUILD = 'pilot-8';
 
   // Safari < 16 and older Android WebViews lack roundRect; the pier and labels need it.
   if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
@@ -1777,7 +1777,8 @@
     daily: null,
     streak: 0,
     lastDailyDate: '',
-    bestSale: 0
+    bestSale: 0,
+    salesCount: 0
   });
 
   function loadSave() {
@@ -1935,6 +1936,28 @@
       } catch (_) {}
     }
 
+    function drum() {
+      const c = unlock();
+      if (!c) return;
+      try {
+        for (let i = 0; i < 3; i++) {
+          const t = c.currentTime + i * 0.32;
+          const osc = c.createOscillator();
+          const g = c.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(95, t);
+          osc.frequency.exponentialRampToValueAtTime(38, t + 0.28);
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.linearRampToValueAtTime(0.5, t + 0.01);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+          osc.connect(g);
+          g.connect(master || c.destination);
+          osc.start(t);
+          osc.stop(t + 0.32);
+        }
+      } catch (_) {}
+    }
+
     function turtleSnap() {
       const c = unlock();
       if (!c) return;
@@ -2085,7 +2108,7 @@
       } catch (_) {}
     }
 
-    return { unlock, plop, dash, kotoArpeggio, turtleSnap, heronStrike, suspendIfHidden, startAmbient, stopAmbient, setEnabled, setMood };
+    return { unlock, plop, dash, drum, kotoArpeggio, turtleSnap, heronStrike, suspendIfHidden, startAmbient, stopAmbient, setEnabled, setMood };
   })();
 
   /* =========================================================================
@@ -2857,6 +2880,8 @@
 
     runTime = 0;
     idleTime = 0;
+    boss = null;
+    snakes.length = 0;
     mercy = 0;
     coach.step = 'eat';
     coach.hazardShown = false;
@@ -2960,6 +2985,7 @@
   function setPond(id, announce = false) {
     if (!PONDS[id] || !isPondUnlocked(id)) return;
     save.pond = id;
+    snakes.length = 0;
     persist(true);
     weather.length = 0;
     rebuildFloorCache();
@@ -3236,7 +3262,426 @@
     fallback();
   }
 
+  /* =========================================================================
+     CROCODILE BOSS + WATER SNAKES
+     ========================================================================= */
+  let boss = null;
+  let bossCooldown = 60;
+  let salesSinceBoss = 0;
+  const snakes = [];
+  let snakeTimer = 12;
+
+  function inPierSafeZone(x, y) {
+    return Math.hypot(x - pier.basketX, y - pier.basketY) < pier.radius * 1.15;
+  }
+
+  function startBoss() {
+    // Surface on the edge farthest from the pier, so the pier stays a refuge.
+    const opts = [
+      { x: 70, y: H * 0.6, a: 0 },
+      { x: W * 0.5, y: H - 60, a: -Math.PI / 2 },
+      { x: W - 70, y: H * 0.75, a: Math.PI },
+      { x: W * 0.3, y: 120, a: Math.PI / 2 }
+    ];
+    opts.sort((p, q) => Math.hypot(q.x - pier.cx, q.y - pier.cy) - Math.hypot(p.x - pier.cx, p.y - pier.cy));
+    const o = opts[0];
+    const seg = 15 * worldScale;
+    const nodes = [];
+    for (let i = 0; i < 11; i++) nodes.push({ x: o.x - Math.cos(o.a) * i * seg, y: o.y - Math.sin(o.a) * i * seg });
+    boss = { phase: 'intro', t: 2.2, x: o.x, y: o.y, angle: o.a, sub: 'circle', subT: 2.2,
+      laneAng: 0, alpha: 0.2, lost: 0, nodes, seg, wig: 0 };
+    herons.length = 0;
+    for (const t of turtles) { t.aiState = 'recovery'; t.stateTimer = 22; }
+    snakes.length = 0;
+    salesSinceBoss = 0;
+    addRipple(o.x, o.y, 180, 'rgba(255, 36, 66, 0.8)', 3);
+    Sound.drum();
+    triggerShake(4, 0.4);
+    KoiAnalytics.track('boss_start', { school_bucket: bucketSchool(school.length) });
+  }
+
+  function endBoss(result) {
+    if (!boss || boss.phase === 'leave') return;
+    const b = boss;
+    if (result === 'survived') {
+      if (b.lost === 0 && school.length > 0) {
+        const jackpot = 200 + 80 * school.length;
+        save.yen += jackpot;
+        save.rareTicket = (save.rareTicket || 0) + 1;
+        persist(true);
+        addParticles(leadKoi.x, leadKoi.y, 44, '#ffd269', 170, 3.4);
+        addRipple(leadKoi.x, leadKoi.y, 220, 'rgba(255, 210, 105, 0.85)', 3);
+        Sound.kotoArpeggio(8, 2);
+        triggerYenPop();
+        showToast(`You outlasted the crocodile! +¥${jackpot}`, 'Not a single koi lost • Your next koi will be rare');
+      } else {
+        showToast('The crocodile gave up', b.lost ? `It took ${b.lost} koi. Keep your school safe next time for a jackpot.` : 'Grow a school to win the jackpot next time.');
+      }
+      KoiAnalytics.track('boss_survived', { koi_lost: b.lost, school_bucket: bucketSchool(school.length) });
+    } else {
+      showToast('Escaped the crocodile!', 'Selling at the pier always ends the hunt.');
+      KoiAnalytics.track('boss_escaped', { koi_lost: b.lost });
+    }
+    b.phase = 'leave';
+    b.t = 1.6;
+    bossCooldown = 90;
+    for (const t of turtles) { t.aiState = 'patrol'; t.stateTimer = 2; }
+  }
+
+  function bossHead(b) {
+    return { x: b.x + Math.cos(b.angle) * 20 * worldScale, y: b.y + Math.sin(b.angle) * 20 * worldScale };
+  }
+
+  function steerBoss(b, tx, ty, turn, spd, dt) {
+    let da = Math.atan2(ty - b.y, tx - b.x) - b.angle;
+    while (da > Math.PI) da -= TAU;
+    while (da < -Math.PI) da += TAU;
+    b.angle += Math.max(-turn * dt, Math.min(turn * dt, da * 3 * dt));
+    b.x += Math.cos(b.angle) * spd * dt;
+    b.y += Math.sin(b.angle) * spd * dt;
+  }
+
+  function bossBite(b) {
+    if (mercy > 0) return;
+    const h = bossHead(b);
+    const hitR = 30 * worldScale;
+    let hitLead = Math.hypot(leadKoi.x - h.x, leadKoi.y - h.y) < hitR + 8 * worldScale && !inPierSafeZone(leadKoi.x, leadKoi.y);
+    let hitSchool = school.some(fk => Math.hypot(fk.x - h.x, fk.y - h.y) < hitR * 0.75 && !inPierSafeZone(fk.x, fk.y));
+    if (!hitLead && !hitSchool) return;
+    if (powerActive('shield')) {
+      power.t = 0; power.type = null;
+      mercy = 1.5;
+      addPopup(h.x, h.y - 24 * worldScale, 'SHIELD BLOCKED THE BITE!', '#5eead4', true);
+      b.sub = 'dive'; b.subT = 0.9;
+      return;
+    }
+    const lost = Math.min(1, school.length);
+    for (let i = 0; i < lost; i++) school.pop();
+    b.lost += lost;
+    mercy = 2.5;
+    leadInvuln = 2;
+    comboHits = 0; comboMult = 1.0; comboTimer = 0;
+    noteHit();
+    KoiAnalytics.track('enemy_hit', { hazard: 'crocodile', target: hitLead ? 'lead' : 'school', koi_lost: lost, school_bucket: bucketSchool(school.length + lost) });
+    addParticles(h.x, h.y, 26, '#ff2442', 140, 3.4);
+    addPopup(h.x, h.y - 26 * worldScale, lost ? `CROC BITE! -${lost} KOI` : 'CROC BITE!', '#ff4d67', true);
+    Sound.turtleSnap();
+    triggerShake(6, 0.3);
+    hitStop = 0.1;
+    b.sub = 'dive'; b.subT = 0.9;
+  }
+
+  function updateBoss(dt) {
+    if (!boss) return;
+    const b = boss;
+    b.t -= dt;
+    b.wig += dt * (b.sub === 'charge' ? 14 : 5);
+    const ws = worldScale;
+    if (b.phase === 'intro') {
+      b.alpha = Math.min(1, b.alpha + dt * 0.5);
+      b.x += Math.cos(b.angle) * 20 * ws * dt;
+      b.y += Math.sin(b.angle) * 20 * ws * dt;
+      if (b.t <= 0) { b.phase = 'fight'; b.t = 20; b.sub = 'circle'; b.subT = 1.6; }
+    } else if (b.phase === 'fight') {
+      b.subT -= dt;
+      if (b.sub === 'circle') {
+        const a = totalTime * 0.7;
+        let tx = leadKoi.x + Math.cos(a) * 190 * ws, ty = leadKoi.y + Math.sin(a) * 190 * ws;
+        if (inPierSafeZone(tx, ty)) { tx = W * 0.4; ty = H * 0.6; }
+        steerBoss(b, tx, ty, 2.0, 90 * ws, dt);
+        if (b.subT <= 0) { b.sub = 'aim'; b.subT = 1.3; }
+      } else if (b.sub === 'aim') {
+        // Lane follows the koi, then locks 0.4 s before the charge
+        if (b.subT > 0.6) b.laneAng = Math.atan2(leadKoi.y - b.y, leadKoi.x - b.x);
+        let da = b.laneAng - b.angle;
+        while (da > Math.PI) da -= TAU;
+        while (da < -Math.PI) da += TAU;
+        b.angle += da * Math.min(1, dt * 10);
+        if (b.subT <= 0) { b.sub = 'charge'; b.subT = 0.75; b.angle = b.laneAng; Sound.turtleSnap(); triggerShake(3, 0.15); }
+      } else if (b.sub === 'charge') {
+        b.x += Math.cos(b.angle) * 520 * ws * dt;
+        b.y += Math.sin(b.angle) * 520 * ws * dt;
+        if (inPierSafeZone(b.x, b.y)) { b.sub = 'dive'; b.subT = 0.9; }
+        else bossBite(b);
+        if (b.subT <= 0 || b.x < -40 || b.x > W + 40 || b.y < -40 || b.y > H + 40) { b.sub = 'dive'; b.subT = 0.9; }
+      } else if (b.sub === 'dive') {
+        b.alpha = Math.max(0.12, b.alpha - dt * 1.6);
+        b.x += Math.cos(b.angle) * 60 * ws * dt;
+        b.y += Math.sin(b.angle) * 60 * ws * dt;
+        if (b.subT <= 0) {
+          // Resurface somewhere away from the koi and the pier
+          for (let i = 0; i < 12; i++) {
+            const nx = W * (0.12 + Math.random() * 0.76), ny = H * (0.2 + Math.random() * 0.68);
+            if (Math.hypot(nx - leadKoi.x, ny - leadKoi.y) > 230 * ws && !inPierSafeZone(nx, ny) &&
+                Math.hypot(nx - pier.cx, ny - pier.cy) > pier.radius + 80 * ws) { b.x = nx; b.y = ny; break; }
+          }
+          b.angle = Math.atan2(leadKoi.y - b.y, leadKoi.x - b.x);
+          for (let i = 0; i < b.nodes.length; i++) {
+            b.nodes[i].x = b.x - Math.cos(b.angle) * i * b.seg;
+            b.nodes[i].y = b.y - Math.sin(b.angle) * i * b.seg;
+          }
+          b.alpha = 1;
+          b.sub = 'circle';
+          b.subT = 1.8 + Math.random() * 1.2;
+          addRipple(b.x, b.y, 120, 'rgba(255, 36, 66, 0.6)', 2.4);
+        }
+      }
+      b.x = Math.max(-30, Math.min(W + 30, b.x));
+      b.y = Math.max(40, Math.min(H + 30, b.y));
+      if (b.t <= 0) endBoss('survived');
+    } else if (b.phase === 'leave') {
+      b.alpha = Math.max(0, b.alpha - dt * 0.8);
+      b.x -= Math.cos(b.angle) * 140 * ws * dt;
+      b.y -= Math.sin(b.angle) * 140 * ws * dt;
+      if (b.t <= 0) boss = null;
+    }
+    if (!boss) return;
+    // Body follows the head like a chain, with a tail sway
+    b.nodes[0].x = b.x; b.nodes[0].y = b.y;
+    for (let i = 1; i < b.nodes.length; i++) {
+      const p = b.nodes[i - 1], c = b.nodes[i];
+      let dx = c.x - p.x, dy = c.y - p.y;
+      const d = Math.hypot(dx, dy) || 0.001;
+      dx /= d; dy /= d;
+      const sway = Math.sin(b.wig - i * 0.6) * (i / b.nodes.length) * 0.35;
+      c.x = p.x + (dx - dy * sway) * b.seg;
+      c.y = p.y + (dy + dx * sway) * b.seg;
+    }
+  }
+
+  function renderBoss() {
+    if (!boss) return;
+    const b = boss;
+    const ws = worldScale;
+    ctx.save();
+    // Red-tinted dread over the pond while it hunts
+    const dread = b.phase === 'leave' ? b.alpha * 0.12 : 0.16;
+    ctx.fillStyle = `rgba(40, 0, 6, ${dread})`;
+    ctx.fillRect(-20, -20, W + 40, H + 40);
+
+    if (b.phase === 'fight' && b.sub === 'aim') {
+      const pulse = 0.5 + Math.sin(totalTime * 18) * 0.5;
+      const locked = b.subT <= 0.6;
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.rotate(b.laneAng);
+      ctx.fillStyle = `rgba(255, 36, 66, ${locked ? 0.32 : 0.12 + pulse * 0.12})`;
+      ctx.fillRect(0, -30 * ws, 640 * ws, 60 * ws);
+      ctx.strokeStyle = 'rgba(255, 36, 66, 0.85)';
+      ctx.setLineDash([10 * ws, 8 * ws]);
+      ctx.lineWidth = 2;
+      ctx.strokeRect(0, -30 * ws, 640 * ws, 60 * ws);
+      ctx.restore();
+    }
+
+    ctx.globalAlpha = b.alpha;
+    const n = b.nodes;
+    // shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+    for (let i = n.length - 1; i >= 0; i--) {
+      const r = (i < 3 ? 16 : 18 - i * 1.4) * ws;
+      ctx.beginPath(); ctx.arc(n[i].x + 6 * ws, n[i].y + 9 * ws, Math.max(4 * ws, r), 0, TAU); ctx.fill();
+    }
+    // legs
+    for (const li of [2, 6]) {
+      const p = n[li], q = n[li + 1];
+      const a = Math.atan2(p.y - q.y, p.x - q.x);
+      for (const side of [-1, 1]) {
+        const kick = Math.sin(b.wig + li + side) * 0.5;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(a + side * (1.6 + kick * 0.4));
+        ctx.fillStyle = '#3a5222';
+        ctx.beginPath(); ctx.ellipse(16 * ws, 0, 13 * ws, 5 * ws, 0, 0, TAU); ctx.fill();
+        ctx.restore();
+      }
+    }
+    // body, tail to head
+    for (let i = n.length - 1; i >= 1; i--) {
+      const r = Math.max(4 * ws, (i < 3 ? 17 : 19 - i * 1.5) * ws);
+      ctx.fillStyle = i % 2 ? '#4e6e2c' : '#45632a';
+      ctx.strokeStyle = 'rgba(255, 36, 66, 0.75)';
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(n[i].x, n[i].y, r, 0, TAU); ctx.fill(); ctx.stroke();
+      // back scutes
+      ctx.fillStyle = '#2c3f17';
+      ctx.beginPath(); ctx.arc(n[i].x, n[i].y, r * 0.38, 0, TAU); ctx.fill();
+    }
+    // head + snout
+    ctx.save();
+    ctx.translate(b.x, b.y);
+    ctx.rotate(b.angle);
+    const open = b.sub === 'charge' ? 0.5 : (b.sub === 'aim' ? 0.3 : 0.06);
+    ctx.fillStyle = '#56782f';
+    ctx.strokeStyle = 'rgba(255, 36, 66, 0.9)';
+    ctx.lineWidth = 1.6;
+    // upper jaw
+    ctx.save(); ctx.rotate(-open * 0.35);
+    ctx.beginPath(); ctx.ellipse(24 * ws, -3 * ws, 30 * ws, 10 * ws, 0, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    // lower jaw
+    ctx.save(); ctx.rotate(open * 0.35);
+    ctx.beginPath(); ctx.ellipse(22 * ws, 4 * ws, 27 * ws, 8 * ws, 0, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    if (open > 0.2) {
+      ctx.fillStyle = '#f4efe3';
+      for (let k = 0; k < 5; k++) {
+        ctx.beginPath(); ctx.moveTo(14 * ws + k * 8 * ws, -1 * ws); ctx.lineTo(17 * ws + k * 8 * ws, 5 * ws); ctx.lineTo(20 * ws + k * 8 * ws, -1 * ws); ctx.fill();
+      }
+    }
+    ctx.fillStyle = '#56782f';
+    ctx.beginPath(); ctx.ellipse(0, 0, 18 * ws, 15 * ws, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ffd84a';
+    for (const side of [-1, 1]) {
+      ctx.beginPath(); ctx.arc(4 * ws, side * 9 * ws, 4.2 * ws, 0, TAU); ctx.fill();
+    }
+    ctx.fillStyle = '#111';
+    for (const side of [-1, 1]) {
+      ctx.beginPath(); ctx.ellipse(5 * ws, side * 9 * ws, 1.2 * ws, 3.2 * ws, 0, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
+
+    // Banner + timer
+    if (b.phase !== 'leave') {
+      const text = b.phase === 'intro' ? '🐊 CROCODILE! Get ready…' : `🐊 Survive ${Math.ceil(Math.max(0, b.t))}s or sell at the pier`;
+      ctx.font = `800 ${Math.max(13, Math.round(15 * ws))}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+      const tw = ctx.measureText(text).width;
+      const pw = tw + 28, ph = 34;
+      const px = (W - pw) / 2, py = Math.min(H * 0.16, 120);
+      ctx.fillStyle = 'rgba(40, 6, 10, 0.88)';
+      ctx.strokeStyle = '#ff4d67';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.roundRect(px, py, pw, ph, 999); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ffd5db';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, W / 2, py + ph / 2 + 1);
+      if (b.phase === 'fight') {
+        const frac = Math.max(0, b.t / 20);
+        ctx.fillStyle = 'rgba(255, 77, 103, 0.25)';
+        ctx.fillRect(px + 14, py + ph + 6, pw - 28, 4);
+        ctx.fillStyle = '#ff4d67';
+        ctx.fillRect(px + 14, py + ph + 6, (pw - 28) * frac, 4);
+      }
+    }
+    ctx.restore();
+  }
+
+  // ----- Water snake: crosses the pond on a predictable S-curve
+  function spawnSnake() {
+    const ws = worldScale;
+    const horizontal = Math.random() < 0.65;
+    let sx, sy, dx, dy, total;
+    if (horizontal) {
+      const fromLeft = Math.random() < 0.5;
+      dx = fromLeft ? 1 : -1; dy = 0;
+      sx = fromLeft ? -50 : W + 50;
+      sy = H * (0.35 + Math.random() * 0.45);
+      total = W + 100;
+    } else {
+      const fromTop = Math.random() < 0.5;
+      dx = 0; dy = fromTop ? 1 : -1;
+      sx = W * (0.2 + Math.random() * 0.5);
+      sy = fromTop ? 60 : H + 50;
+      total = H + 60;
+    }
+    const segs = 18, spacing = 11 * ws;
+    snakes.push({ sx, sy, dx, dy, total, segs, spacing, s: 0, phase: 'preview', t: 1.6,
+      speed: 125 * ws, A: 52 * ws, k: 0.02 / ws, flick: 0 });
+    KoiAnalytics.track('snake_spawn', { pond: currentPondId() });
+  }
+  function snakePos(sn, s) {
+    const w = Math.sin(s * sn.k) * sn.A;
+    return { x: sn.sx + sn.dx * s - sn.dy * w, y: sn.sy + sn.dy * s + sn.dx * w };
+  }
+  function updateSnakes(dt) {
+    for (let i = snakes.length - 1; i >= 0; i--) {
+      const sn = snakes[i];
+      sn.flick += dt;
+      if (sn.phase === 'preview') {
+        sn.t -= dt;
+        if (sn.t <= 0) sn.phase = 'swim';
+        continue;
+      }
+      sn.s += sn.speed * dt;
+      if (sn.s - sn.segs * sn.spacing > sn.total) { snakes.splice(i, 1); continue; }
+      if (mercy > 0 || powerActive('shield')) continue;
+      const ws = worldScale;
+      let hit = false;
+      for (let k = 0; k <= sn.segs && !hit; k++) {
+        const sk = sn.s - k * sn.spacing;
+        if (sk < 0) continue;
+        const p = snakePos(sn, sk);
+        if (Math.hypot(leadKoi.x - p.x, leadKoi.y - p.y) < 18 * ws) hit = true;
+        else if (school.some(fk => Math.hypot(fk.x - p.x, fk.y - p.y) < 13 * ws)) hit = true;
+      }
+      if (hit) {
+        const lost = school.length > 0 ? 1 : 0;
+        if (lost) school.pop();
+        mercy = 2.5;
+        leadInvuln = 1.5;
+        comboHits = 0; comboMult = 1.0; comboTimer = 0;
+        noteHit();
+        KoiAnalytics.track('enemy_hit', { hazard: 'snake', target: 'school', koi_lost: lost, school_bucket: bucketSchool(school.length + lost) });
+        KoiAnalytics.track('snake_hit', { koi_lost: lost });
+        addParticles(leadKoi.x, leadKoi.y, 14, '#ff2442', 100, 3);
+        addPopup(leadKoi.x, leadKoi.y - 24 * ws, lost ? 'SNAKE! -1 KOI' : 'SNAKE!', '#ff4d67', true);
+        Sound.turtleSnap();
+        triggerShake(4, 0.18);
+        hitStop = 0.05;
+      }
+    }
+  }
+  function renderSnakes() {
+    const ws = worldScale;
+    for (const sn of snakes) {
+      // Route preview: a fading red dotted line shows the path ~1.5 s ahead
+      const showPath = sn.phase === 'preview' || sn.s < sn.total * 0.35;
+      if (showPath) {
+        const a = sn.phase === 'preview' ? 0.35 + Math.sin(totalTime * 10) * 0.2 : 0.18;
+        ctx.fillStyle = `rgba(255, 36, 66, ${a})`;
+        for (let s2 = Math.max(0, sn.s); s2 < sn.total; s2 += 22 * ws) {
+          const p = snakePos(sn, s2);
+          ctx.beginPath(); ctx.arc(p.x, p.y, 2.4 * ws, 0, TAU); ctx.fill();
+        }
+      }
+      if (sn.phase === 'preview') continue;
+      // body: tail to head, tapering
+      for (let k = sn.segs; k >= 0; k--) {
+        const sk = sn.s - k * sn.spacing;
+        if (sk < 0) continue;
+        const p = snakePos(sn, sk);
+        const r = (3 + (1 - k / sn.segs) * 6.5) * ws;
+        ctx.fillStyle = k % 3 === 0 ? '#c9a227' : '#36501f';
+        ctx.strokeStyle = 'rgba(255, 36, 66, 0.8)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, TAU); ctx.fill(); ctx.stroke();
+      }
+      const h = snakePos(sn, sn.s), h2 = snakePos(sn, sn.s - 4);
+      const a = Math.atan2(h.y - h2.y, h.x - h2.x);
+      ctx.save();
+      ctx.translate(h.x, h.y);
+      ctx.rotate(a);
+      if (Math.sin(sn.flick * 9) > 0.3) {
+        ctx.strokeStyle = '#ff2442';
+        ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(10 * ws, 0); ctx.lineTo(17 * ws, 0); ctx.lineTo(20 * ws, -3 * ws);
+        ctx.moveTo(17 * ws, 0); ctx.lineTo(20 * ws, 3 * ws); ctx.stroke();
+      }
+      ctx.fillStyle = '#36501f';
+      ctx.strokeStyle = 'rgba(255, 36, 66, 0.9)';
+      ctx.beginPath(); ctx.ellipse(3 * ws, 0, 11 * ws, 8 * ws, 0, 0, TAU); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ffd84a';
+      ctx.beginPath(); ctx.arc(6 * ws, -4 * ws, 2 * ws, 0, TAU); ctx.arc(6 * ws, 4 * ws, 2 * ws, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+  }
+
   function afterHarvest(count, bd, rare) {
+    save.salesCount = (save.salesCount || 0) + 1;
+    salesSinceBoss++;
+    if (boss && (boss.phase === 'fight' || boss.phase === 'intro')) endBoss('escaped');
     const isBest = bd.total > (save.bestSale || 0);
     if (isBest) save.bestSale = bd.total;
     dailyProgress('trip', count);
@@ -3663,11 +4108,27 @@
       const heronOk = first ? (runTime > 24 && school.length >= 2) : (runTime > 9 && school.length >= 1);
       const turtleCap = pondNow.id === 'maple' ? 3 : 2;
       const targetTurtles = school.length >= 1 ? Math.min(turtleCap, 1 + Math.floor(school.length / 5)) : 1;
-      if (turtleOk && turtles.length < targetTurtles && Math.random() < dt * (turtles.length === 0 ? 1.2 : 0.35)) {
+      if (!boss && turtleOk && turtles.length < targetTurtles && Math.random() < dt * (turtles.length === 0 ? 1.2 : 0.35)) {
         spawnTurtle();
       }
 
-      if (heronOk && mercy <= 0) {
+      // Crocodile boss: never in the first few sales, never back to back.
+      bossCooldown -= dt;
+      if (!boss && bossCooldown <= 0 && (save.salesCount || 0) >= 4 && school.length >= 3 &&
+          (salesSinceBoss >= 5 || school.length >= 8)) {
+        startBoss();
+      }
+
+      // Water snakes: later ponds only (Bamboo Stream, Autumn Maple)
+      if (!boss && (pondNow.id === 'bamboo' || pondNow.id === 'maple') && runTime > 15) {
+        snakeTimer -= dt;
+        if (snakeTimer <= 0) {
+          snakeTimer = 30 + Math.random() * 10;
+          if (snakes.length === 0) spawnSnake();
+        }
+      }
+
+      if (!boss && heronOk && mercy <= 0) {
         hazardSpawnTimer -= dt;
         if (hazardSpawnTimer <= 0) {
           hazardSpawnTimer = Math.max(3.4, 7.0 - school.length * 0.3) * (pondNow.dark ? 0.8 : 1);
@@ -3677,10 +4138,14 @@
     } else {
       turtles.length = 0;
       herons.length = 0;
+      snakes.length = 0;
+      boss = null;
     }
 
     updateTurtles(dt);
     updateHerons(dt);
+    updateSnakes(dt);
+    updateBoss(dt);
     updateWeather(dt);
 
     // 6. Surface Lily Pad Occlusion Fade (Smoothly fades when koi swim beneath)
@@ -5121,11 +5586,13 @@
 
     renderTurtles();
     renderHerons();
+    renderSnakes();
 
     // Layer 3: Surface Lily Pads, Particles, Popups & Coin Flights
     renderSurfaceLilies();
     renderWeather();
     renderNight();
+    renderBoss();
 
     for (const p of particles) {
       ctx.save();
@@ -5964,6 +6431,10 @@
       spawnPower: (t) => { spawnFood('power', leadKoi.x + 60, leadKoi.y); foods[foods.length - 1].ptype = t; },
       get daily() { return save.daily; },
       harvest: () => executeHarvest(),
+      startBoss: () => startBoss(),
+      spawnSnake: () => spawnSnake(),
+      get boss() { return boss; },
+      snakes,
       card: () => buildShareCard(9, 4820, 'dragon', canvas).toDataURL('image/png'),
       setPond: (id) => { save.totalHarvested = Math.max(save.totalHarvested || 0, PONDS[id].unlockAt); setPond(id); },
       save

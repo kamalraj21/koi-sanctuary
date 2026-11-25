@@ -156,6 +156,47 @@
     font-weight: 600;
   }
 
+  .daily-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--gold);
+    cursor: pointer;
+    max-width: 78vw;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .daily-pill b { color: var(--text-main); font-weight: 800; }
+  .daily-pill.done { color: var(--emerald); border-color: rgba(94, 234, 212, 0.6); }
+  .share-pill {
+    position: fixed;
+    left: 50%;
+    bottom: calc(92px + var(--safe-bottom));
+    transform: translateX(-50%) translateY(12px);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 46px;
+    padding: 0 22px;
+    border: none;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #ffd269, #e59d2c);
+    color: #131b20;
+    font-size: 15px;
+    font-weight: 800;
+    box-shadow: 0 10px 28px rgba(229, 157, 44, 0.45);
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 22;
+  }
+  .share-pill.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+
   .grow-bar {
     display: inline-block;
     width: 34px;
@@ -831,7 +872,7 @@
   /* Shop Tabs & Cards */
   .tab-bar {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 6px;
     background: rgba(6, 15, 21, 0.7);
     padding: 4px;
@@ -1091,6 +1132,7 @@
         </button>
         <div id="combo-pill">Combo <span id="combo-val">x1.5</span></div>
       </div>
+      <button id="daily-pill" class="glass-pill daily-pill" type="button" aria-label="Daily challenge"></button>
     </div>
 
     <!-- Desktop Market Order Pill -->
@@ -1131,6 +1173,7 @@
     <div style="font-size:11.5px;color:var(--text-muted);">Swim into the top-right <strong>Market Pier</strong> once fulfilled to cash out!</div>
   </div>
 
+  <button id="share-pill" class="share-pill" type="button">&#128248; Share this catch</button>
   <div id="control-hint">Steer with the mouse or WASD &bull; Hold click or Space to dash</div>
 
   <!-- Ergonomic Mobile Radial-Stamina Dash Button -->
@@ -1200,9 +1243,10 @@
     </div>
     <div class="sheet-body">
       <div class="tab-bar">
-        <button id="tab-varieties" class="tab-btn active" type="button">Koi Varieties</button>
+        <button id="tab-varieties" class="tab-btn active" type="button">Breeds</button>
         <button id="tab-upgrades" class="tab-btn" type="button">Upgrades</button>
         <button id="tab-ponds" class="tab-btn" type="button">Ponds</button>
+        <button id="tab-book" class="tab-btn" type="button">Koi Book</button>
       </div>
       <div id="shop-grid" class="shop-grid"></div>
     </div>
@@ -1271,7 +1315,7 @@
 (() => {
   'use strict';
 
-  const BUILD = 'pilot-6';
+  const BUILD = 'pilot-7';
 
   // Safari < 16 and older Android WebViews lack roundRect; the pier and labels need it.
   if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
@@ -1683,6 +1727,24 @@
   };
   const POND_KEYS = ['garden', 'bamboo', 'moon', 'maple', 'winter'];
 
+  // Rare koi: about 1 in 25 new koi, or guaranteed by a daily challenge.
+  // They glow, sell for 3x and fill the Koi Book.
+  const RARES = {
+    platinum:  { name: 'Platinum Ogon',  baseColor: '#e9eef2', patchColor: null,      sumiColor: null,      finColor: 'rgba(235, 242, 248, 0.72)', glow: 'rgba(220, 240, 255, 0.55)', pattern: 'plain',  swatch: 'radial-gradient(circle, #ffffff, #aebbc6)' },
+    butterfly: { name: 'Butterfly Koi',  baseColor: '#f6efe6', patchColor: '#ff7a2e', sumiColor: null,      finColor: 'rgba(255, 150, 90, 0.6)',   glow: 'rgba(255, 150, 90, 0.4)',   pattern: 'patch',  finScale: 1.9, swatch: 'linear-gradient(135deg, #f6efe6 45%, #ff7a2e 55%)' },
+    dragon:    { name: 'Dragon Scale',   baseColor: '#f4c430', patchColor: '#fff3b0', sumiColor: '#8a5a00', finColor: 'rgba(255, 215, 90, 0.72)',  glow: 'rgba(255, 210, 80, 0.6)',   pattern: 'patch',  swatch: 'linear-gradient(135deg, #fff3b0, #f4c430 50%, #8a5a00)' },
+    ghost:     { name: 'Ghost Koi',      baseColor: 'rgba(214, 236, 246, 0.62)', patchColor: 'rgba(120, 160, 190, 0.55)', sumiColor: null, finColor: 'rgba(200, 230, 245, 0.35)', glow: 'rgba(160, 220, 255, 0.45)', pattern: 'patch', swatch: 'linear-gradient(135deg, #d6ecf6, #78a0be)' },
+    sakura:    { name: 'Sakura Koi',     baseColor: '#fde4ec', patchColor: '#f48fb1', sumiColor: null,      finColor: 'rgba(252, 200, 220, 0.65)', glow: 'rgba(244, 143, 177, 0.45)', pattern: 'patch',  swatch: 'linear-gradient(135deg, #fde4ec, #f48fb1)' },
+    midnight:  { name: 'Midnight Karasu', baseColor: '#1c1f27', patchColor: '#ff8a3d', sumiColor: null,     finColor: 'rgba(70, 74, 92, 0.75)',    glow: 'rgba(255, 138, 61, 0.38)',  pattern: 'asagi',  swatch: 'linear-gradient(135deg, #1c1f27 55%, #ff8a3d 56%)' }
+  };
+  const RARE_KEYS = ['platinum', 'butterfly', 'dragon', 'ghost', 'sakura', 'midnight'];
+
+  const POWER_INFO = {
+    shield: { name: 'SHIELD', color: '#5eead4', desc: 'Nothing can hurt your school' },
+    magnet: { name: 'MAGNET', color: '#c084fc', desc: 'Food flies to you' },
+    frenzy: { name: 'FRENZY', color: '#ffd269', desc: 'Faster, endless dash, 2\u00D7 yen' }
+  };
+
   const ORDER_TITLES = [
     'Tea House Order', 'Lantern Festival', 'Scholar Pond', 'Temple Garden',
     'Moon Viewing', 'Merchant Guild', 'Imperial Tribute', 'Grand Sanctuary'
@@ -1709,7 +1771,13 @@
     sessions: 0,
     obSteps: {},
     pond: 'garden',
-    pondsSeen: ['garden']
+    pondsSeen: ['garden'],
+    collection: {},
+    rareTicket: 0,
+    daily: null,
+    streak: 0,
+    lastDailyDate: '',
+    bestSale: 0
   });
 
   function loadSave() {
@@ -1724,6 +1792,7 @@
         upgrades: { ...def.upgrades, ...(p.upgrades || {}) },
         obSteps: { ...(p.obSteps || {}) },
         pondsSeen: Array.isArray(p.pondsSeen) && p.pondsSeen.length ? p.pondsSeen : ['garden'],
+        collection: { ...(p.collection || {}) },
         unlocked: Array.isArray(p.unlocked) && p.unlocked.length ? p.unlocked : ['kohaku']
       };
     } catch (_) {
@@ -2329,7 +2398,7 @@
     return n === 1 ? '1' : n === 2 ? '2' : n <= 5 ? '3-5' : '6+';
   }
   function refBucket() {
-    const aliases = { wa: 'whatsapp', li: 'linkedin', dc: 'discord', tw: 'twitter', x: 'twitter', ig: 'instagram', tg: 'telegram', rd: 'reddit' };
+    const aliases = { share: 'share', wa: 'whatsapp', li: 'linkedin', dc: 'discord', tw: 'twitter', x: 'twitter', ig: 'instagram', tg: 'telegram', rd: 'reddit' };
     const tag = (safeGetQueryParam('ref') || safeGetQueryParam('utm_source') || '').toLowerCase().trim();
     if (tag) {
       if (aliases[tag]) return aliases[tag];
@@ -2510,7 +2579,7 @@
     for (const fk of school) {
       const vMult = VARIETIES[fk.variety].mult;
       const tier = getMaturityTier(fk.xp);
-      raw += 28 * vMult * tier.mult;
+      raw += 28 * vMult * tier.mult * (fk.rare ? 3 : 1);
     }
     const base = Math.round(raw * schoolScaleBonus * repMult * modeMult * getPond().mult);
     const ord = evaluateOrderProgress();
@@ -2691,12 +2760,13 @@
     const ang = Math.random() * TAU;
     foods.push({
       kind,
+      ptype: kind === 'power' ? ['shield', 'magnet', 'frenzy'][Math.floor(Math.random() * 3)] : null,
       x: fx,
       y: fy,
       vx: kind === 'dragonfly' ? Math.cos(ang) * 44 * worldScale : 0,
       vy: kind === 'dragonfly' ? Math.sin(ang) * 44 * worldScale : 0,
-      r: (kind === 'lotus' ? 11 : kind === 'dragonfly' ? 9 : 7) * worldScale,
-      life: kind === 'dragonfly' ? 16 : 26,
+      r: (kind === 'power' ? 13 : kind === 'lotus' ? 11 : kind === 'dragonfly' ? 9 : 7) * worldScale,
+      life: kind === 'power' ? 14 : kind === 'dragonfly' ? 16 : 26,
       phase: Math.random() * TAU
     });
   }
@@ -2824,10 +2894,26 @@
     const sx = leadKoi.x - Math.cos(leadKoi.angle) * 34 * worldScale;
     const sy = leadKoi.y - Math.sin(leadKoi.angle) * 34 * worldScale;
     const member = createIKKoi(vKey, sx, sy, spawnAngle, false, school.length);
+    let rare = null;
+    if ((save.rareTicket || 0) > 0) { rare = pickRare(); save.rareTicket--; }
+    else if (school.length >= 1 && Math.random() < 1 / 25) rare = pickRare();
+    member.rare = rare;
     school.push(member);
     addRipple(sx, sy, 52, 'rgba(94, 234, 212, 0.55)', 2.0);
-    addPopup(leadKoi.x, leadKoi.y - 24 * worldScale, `+1 ${VARIETIES[vKey].name.toUpperCase()}`, '#5eead4', true);
-    Sound.kotoArpeggio(3, 2);
+    if (rare) {
+      const firstTime = !save.collection[rare];
+      save.collection[rare] = (save.collection[rare] || 0) + 1;
+      persist();
+      addRipple(sx, sy, 130, 'rgba(255, 236, 150, 0.85)', 3);
+      addParticles(sx, sy, 26, '#fff3b0', 120, 3);
+      addPopup(leadKoi.x, leadKoi.y - 30 * worldScale, `\u2728 RARE: ${RARES[rare].name.toUpperCase()}!`, '#fff3b0', true);
+      Sound.kotoArpeggio(7, 3);
+      KoiAnalytics.track('rare_hatch', { rare, first_time: firstTime });
+      if (firstTime) showToast(`New in your Koi Book: ${RARES[rare].name}!`, 'Rare koi sell for 3\u00D7. Open the shop \u2192 Koi Book.');
+    } else {
+      addPopup(leadKoi.x, leadKoi.y - 24 * worldScale, `+1 ${VARIETIES[vKey].name.toUpperCase()}`, '#5eead4', true);
+      Sound.kotoArpeggio(3, 2);
+    }
   }
 
   /* =========================================================================
@@ -2907,10 +2993,271 @@
     return null;
   }
 
+  /* =========================================================================
+     ENGAGEMENT: power-ups, daily challenge + streak, rare koi, share card
+     ========================================================================= */
+  let hitsSinceSale = 0;
+  function noteHit() { hitsSinceSale++; }
+
+  // Favour rares the player has not found yet, so the book fills steadily.
+  function pickRare() {
+    const missing = RARE_KEYS.filter(k => !save.collection[k]);
+    const pool = missing.length && Math.random() < 0.7 ? missing : RARE_KEYS;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  // ----- Power-ups
+  const power = { type: null, t: 0 };
+  let powerTimer = 18;
+  function powerActive(type) { return power.type === type && power.t > 0; }
+  function activatePower(type, x, y) {
+    const pi = POWER_INFO[type] || POWER_INFO.shield;
+    power.type = type;
+    power.t = 7;
+    addRipple(x, y, 120, pi.color, 2.6);
+    addParticles(x, y, 20, pi.color, 110, 3);
+    addPopup(x, y - 22 * worldScale, `${pi.name}! ${pi.desc}`, pi.color, true);
+    Sound.kotoArpeggio(5, 3);
+    KoiAnalytics.track('powerup', { type });
+    dailyProgress('power', 1);
+  }
+  function drawPowerIcon(type, x, y, r, color) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = Math.max(1.6, r * 0.28);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    if (type === 'shield') {
+      ctx.moveTo(0, -r); ctx.lineTo(r * 0.85, -r * 0.55); ctx.lineTo(r * 0.7, r * 0.35);
+      ctx.lineTo(0, r); ctx.lineTo(-r * 0.7, r * 0.35); ctx.lineTo(-r * 0.85, -r * 0.55); ctx.closePath();
+      ctx.stroke();
+    } else if (type === 'magnet') {
+      ctx.arc(0, -r * 0.05, r * 0.65, Math.PI, 0, true);
+      ctx.moveTo(-r * 0.65, -r * 0.05); ctx.lineTo(-r * 0.65, -r * 0.7);
+      ctx.moveTo(r * 0.65, -r * 0.05); ctx.lineTo(r * 0.65, -r * 0.7);
+      ctx.stroke();
+    } else {
+      ctx.moveTo(r * 0.2, -r); ctx.lineTo(-r * 0.55, r * 0.1); ctx.lineTo(0, r * 0.1);
+      ctx.lineTo(-r * 0.2, r); ctx.lineTo(r * 0.55, -r * 0.1); ctx.lineTo(0, -r * 0.1); ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  function renderPowerAura() {
+    if (!leadKoi || !power.type || power.t <= 0) return;
+    const pi = POWER_INFO[power.type];
+    const pulse = 0.5 + Math.sin(totalTime * 8) * 0.5;
+    ctx.save();
+    ctx.strokeStyle = pi.color;
+    ctx.globalAlpha = 0.35 + pulse * 0.35;
+    ctx.lineWidth = 3 * worldScale;
+    ctx.beginPath();
+    ctx.arc(leadKoi.x, leadKoi.y, (34 + pulse * 4) * worldScale, 0, TAU);
+    ctx.stroke();
+    if (power.type === 'shield') {
+      for (const fk of school) {
+        ctx.beginPath(); ctx.arc(fk.x, fk.y, 18 * worldScale, 0, TAU); ctx.stroke();
+      }
+    }
+    ctx.restore();
+    drawCoachLabel(leadKoi.x, leadKoi.y - 52 * worldScale, `${pi.name} ${Math.ceil(power.t)}s`, pi.color, Math.min(1, power.t));
+  }
+
+  // ----- Daily challenge + streak
+  function dayKey(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function strHash(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+  const DAILY_TYPES = [
+    { id: 'trip',   target: r => 5 + Math.floor(r() * 3),          label: t => `Sell ${t} koi in one trip`,      best: true },
+    { id: 'orders', target: r => 2 + Math.floor(r() * 2),          label: t => `Complete ${t} market orders` },
+    { id: 'clean',  target: r => 4 + Math.floor(r() * 2),          label: t => `Sell ${t}+ koi without a hit`,   best: true },
+    { id: 'earn',   target: r => 1500 + 500 * Math.floor(r() * 4), label: t => `Earn ¥${t.toLocaleString()} from sales` },
+    { id: 'power',  target: () => 3,                               label: t => `Collect ${t} power-ups` }
+  ];
+  function ensureDaily() {
+    const k = dayKey(new Date());
+    if (save.daily && save.daily.date === k) return save.daily;
+    const r = mulberry(strHash(k));
+    const T = DAILY_TYPES[Math.floor(r() * DAILY_TYPES.length)];
+    save.daily = { date: k, id: T.id, target: T.target(r), progress: 0, done: false };
+    persist();
+    return save.daily;
+  }
+  function dailyDef() { const d = ensureDaily(); return DAILY_TYPES.find(t => t.id === d.id) || DAILY_TYPES[0]; }
+  function dailyReward() { return 300 + Math.min(7, save.streak || 0) * 100; }
+  function dailyProgress(id, value) {
+    const d = ensureDaily();
+    if (d.done || d.id !== id) return;
+    const def = dailyDef();
+    d.progress = def.best ? Math.max(d.progress, value) : d.progress + value;
+    if (d.progress >= d.target) completeDaily();
+    persist();
+  }
+  function completeDaily() {
+    const d = save.daily;
+    d.done = true;
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    save.streak = save.lastDailyDate === dayKey(y) ? (save.streak || 0) + 1 : 1;
+    save.lastDailyDate = d.date;
+    const reward = dailyReward();
+    save.yen += reward;
+    save.rareTicket = (save.rareTicket || 0) + 1;
+    persist(true);
+    KoiAnalytics.track('daily_complete', { challenge: d.id, streak: save.streak });
+    setTimeout(() => {
+      Sound.kotoArpeggio(8, 1);
+      if (leadKoi) {
+        addParticles(leadKoi.x, leadKoi.y, 40, '#ffd269', 160, 3.4);
+        addRipple(leadKoi.x, leadKoi.y, 200, 'rgba(255, 210, 105, 0.8)', 3);
+      }
+      showToast(`Daily challenge complete! +¥${reward}`, `🔥 ${save.streak}-day streak • Your next koi will be rare`);
+      triggerYenPop();
+    }, 1700);
+  }
+
+  // ----- Share card + "beat my catch" links
+  const friendBest = (() => {
+    const v = parseInt(safeGetQueryParam('best') || '', 10);
+    return Number.isFinite(v) && v > 0 && v < 10000000 ? v : 0;
+  })();
+  let beatFriend = false;
+  let shareData = null;
+  let shareTimer = null;
+
+  function siteUrl() {
+    try {
+      const c = document.querySelector('link[rel="canonical"]');
+      if (c && c.href) return c.href.replace(/[?#].*$/, '');
+    } catch (_) {}
+    return 'https://kamalraj21.github.io/koi-sanctuary/';
+  }
+
+  function buildShareCard(count, total, rare, shot) {
+    const S = 1080;
+    const c = document.createElement('canvas');
+    c.width = S; c.height = S;
+    const g = c.getContext('2d');
+    g.fillStyle = '#07131a';
+    g.fillRect(0, 0, S, S);
+    const ph = 700;
+    if (shot) {
+      const sr = Math.max(S / shot.width, ph / shot.height);
+      const sw = S / sr, sh = ph / sr;
+      g.drawImage(shot, (shot.width - sw) / 2, (shot.height - sh) / 2, sw, sh, 0, 0, S, ph);
+    }
+    const fade = g.createLinearGradient(0, ph - 260, 0, ph + 20);
+    fade.addColorStop(0, 'rgba(7, 19, 26, 0)');
+    fade.addColorStop(1, 'rgba(7, 19, 26, 1)');
+    g.fillStyle = fade;
+    g.fillRect(0, ph - 260, S, 300);
+    g.textAlign = 'center';
+    g.fillStyle = '#ffd269';
+    g.font = '800 34px -apple-system, "Segoe UI", Roboto, sans-serif';
+    g.fillText('K O I   S A N C T U A R Y', S / 2, 640);
+    g.fillStyle = '#f4f9fb';
+    g.font = '700 150px Georgia, "Times New Roman", serif';
+    g.fillText('¥' + total.toLocaleString(), S / 2, 800);
+    g.fillStyle = '#c8dce7';
+    g.font = '500 46px -apple-system, "Segoe UI", Roboto, sans-serif';
+    g.fillText(`Sold ${count} koi in ${getPond().name}`, S / 2, 870);
+    if (rare) {
+      g.fillStyle = '#fff3b0';
+      g.font = '700 40px -apple-system, "Segoe UI", Roboto, sans-serif';
+      g.fillText(`✨ with a rare ${RARES[rare].name}`, S / 2, 930);
+    }
+    const bw = 620, bh = 92, bx = (S - bw) / 2, by = rare ? 960 : 930;
+    const bg = g.createLinearGradient(bx, by, bx + bw, by + bh);
+    bg.addColorStop(0, '#ffd269'); bg.addColorStop(1, '#e59d2c');
+    g.fillStyle = bg;
+    g.beginPath(); g.roundRect(bx, by, bw, bh, 46); g.fill();
+    g.fillStyle = '#131b20';
+    g.font = '800 42px -apple-system, "Segoe UI", Roboto, sans-serif';
+    g.fillText('Can you beat my catch?', S / 2, by + 60);
+    return c;
+  }
+
+  function prepareShare(count, total, rare) {
+    let shot = null;
+    try {
+      shot = document.createElement('canvas');
+      shot.width = canvas.width; shot.height = canvas.height;
+      shot.getContext('2d').drawImage(canvas, 0, 0);
+    } catch (_) { shot = null; }
+    const url = `${siteUrl()}?ref=share&best=${total}`;
+    const text = `I sold ${count} koi for ¥${total.toLocaleString()} in Koi Sanctuary 🎏 Can you beat my catch?`;
+    shareData = { count, total, rare, url, text, file: null };
+    try {
+      const card = buildShareCard(count, total, rare, shot);
+      card.toBlob((blob) => {
+        if (blob && shareData) {
+          try { shareData.file = new File([blob], 'koi-catch.png', { type: 'image/png' }); } catch (_) {}
+        }
+      }, 'image/png');
+    } catch (_) {}
+    const pill = document.getElementById('share-pill');
+    pill.classList.add('show');
+    clearTimeout(shareTimer);
+    shareTimer = setTimeout(() => pill.classList.remove('show'), 9000);
+    KoiAnalytics.track('share_offer', { school_bucket: bucketSchool(count) });
+  }
+
+  function doShare() {
+    if (!shareData) return;
+    const d = shareData;
+    document.getElementById('share-pill').classList.remove('show');
+    KoiAnalytics.track('share_click', {});
+    const done = (method) => KoiAnalytics.track('share_done', { method });
+    const fallback = () => {
+      try { window.open('https://wa.me/?text=' + encodeURIComponent(d.text + ' ' + d.url), '_blank'); done('whatsapp_link'); }
+      catch (_) {}
+    };
+    try {
+      if (d.file && navigator.canShare && navigator.canShare({ files: [d.file] })) {
+        navigator.share({ files: [d.file], text: d.text + ' ' + d.url }).then(() => done('native_image')).catch((e) => {
+          if (!e || e.name !== 'AbortError') fallback();
+        });
+        return;
+      }
+      if (navigator.share) {
+        navigator.share({ text: d.text, url: d.url }).then(() => done('native_text')).catch((e) => {
+          if (!e || e.name !== 'AbortError') fallback();
+        });
+        return;
+      }
+    } catch (_) {}
+    fallback();
+  }
+
+  function afterHarvest(count, bd, rare) {
+    const isBest = bd.total > (save.bestSale || 0);
+    if (isBest) save.bestSale = bd.total;
+    dailyProgress('trip', count);
+    if (bd.orderComplete) dailyProgress('orders', 1);
+    if (hitsSinceSale === 0) dailyProgress('clean', count);
+    dailyProgress('earn', bd.total);
+    hitsSinceSale = 0;
+    if (friendBest && !beatFriend && bd.total > friendBest) {
+      beatFriend = true;
+      KoiAnalytics.track('beat_friend', {});
+      setTimeout(() => showToast(`You beat your friend's ¥${friendBest.toLocaleString()}! 🎉`, 'Tap Share to send your catch back.'), 1200);
+    }
+    if (count >= 3 || isBest) prepareShare(count, bd.total, rare);
+    persist();
+  }
+
   function executeHarvest() {
     if (school.length === 0) return;
     const count = school.length;
     const bd = computeHarvestBreakdown();
+    const rareInCatch = (school.find(k => k.rare) || {}).rare || null;
 
     const orderTier = getCurrentOrder().tier;
     save.yen += bd.total;
@@ -2964,6 +3311,7 @@
     );
 
     Sound.kotoArpeggio(bd.orderComplete ? 6 : 4, bd.orderComplete ? 1 : 0);
+    afterHarvest(count, bd, rareInCatch);
     school.length = 0;
     checkPondUnlocks();
     harvestCharge = 0;
@@ -3075,7 +3423,7 @@
     if (isIdle) leadKoi.angle += 0.7 * dt;
 
     const baseSpeed = 148 * worldScale;
-    const targetSpeed = (isDashing ? baseSpeed * 1.68 : (isIdle ? baseSpeed * 0.35 : baseSpeed)) * (onIce ? 1.18 : 1);
+    const targetSpeed = (isDashing ? baseSpeed * 1.68 : (isIdle ? baseSpeed * 0.35 : baseSpeed)) * (onIce ? 1.18 : 1) * (powerActive('frenzy') ? 1.35 : 1);
     leadKoi.speed += (targetSpeed - leadKoi.speed) * Math.min(1, dt * 7);
 
     const step = leadKoi.speed * dt;
@@ -3221,8 +3569,21 @@
       foodSpawnTimer = Math.max(0.5, 1.6 - (save.upgrades.autofeeder || 0) * 0.2);
     }
 
+    // Power-ups float in every 20-30 s once the player has had time to learn
+    powerTimer -= dt;
+    if (powerTimer <= 0) {
+      powerTimer = 20 + Math.random() * 12;
+      if (runTime > 20 && !foods.some(ff => ff.kind === 'power')) spawnFood('power');
+    }
+    if (power.t > 0) {
+      power.t -= dt;
+      if (power.type === 'shield') { mercy = Math.max(mercy, 0.15); leadInvuln = Math.max(leadInvuln, 0.15); }
+      if (power.type === 'frenzy') stamina = getMaxStamina();
+      if (power.t <= 0) power.type = null;
+    }
+
     const pickupR = 26 * worldScale;
-    const ogonMagnetR = hasTrait('ogon') ? 115 * worldScale : 0;
+    const ogonMagnetR = powerActive('magnet') ? 260 * worldScale : (hasTrait('ogon') ? 115 * worldScale : 0);
 
     for (let i = foods.length - 1; i >= 0; i--) {
       const f = foods[i];
@@ -3381,6 +3742,7 @@
   }
 
   function onEatFood(f) {
+    if (f.kind === 'power') { activatePower(f.ptype, f.x, f.y); return; }
     leadKoi.chompTimer = 1.0;
     comboHits++;
     comboTimer = getComboWindow();
@@ -3413,7 +3775,7 @@
       special = true;
     }
 
-    const earned = Math.max(1, Math.round(baseYen * leadMult * baitMult * comboMult * modeMult));
+    const earned = Math.max(1, Math.round(baseYen * leadMult * baitMult * comboMult * modeMult * (powerActive('frenzy') ? 2 : 1)));
     save.yen += earned;
     persist();
 
@@ -3644,7 +4006,7 @@
             addParticles(fk.x, fk.y, 14, '#ff2442', 100, 3.0);
             addPopup(fk.x, fk.y - 20 * worldScale, 'SNAPPED! -1 KOI', '#ff4d67', true);
             school.splice(kIdx, 1);
-            KoiAnalytics.track('enemy_hit', { hazard: 'turtle', target: 'school', koi_lost: 1, school_bucket: bucketSchool(school.length + 1) });
+            noteHit(); KoiAnalytics.track('enemy_hit', { hazard: 'turtle', target: 'school', koi_lost: 1, school_bucket: bucketSchool(school.length + 1) });
             triggerShake(4, 0.18);
             hitStop = 0.05;
             break;
@@ -3677,7 +4039,7 @@
         Sound.turtleSnap();
         addRipple(t.x, t.y, 70, 'rgba(255, 36, 66, 0.85)', 2.4);
         addPopup(leadKoi.x, leadKoi.y - 22 * worldScale, 'SNAPPER HIT!', '#ff4d67', true);
-        KoiAnalytics.track('enemy_hit', { hazard: 'turtle', target: 'lead', koi_lost: 0, school_bucket: bucketSchool(school.length) });
+        noteHit(); KoiAnalytics.track('enemy_hit', { hazard: 'turtle', target: 'lead', koi_lost: 0, school_bucket: bucketSchool(school.length) });
         triggerShake(5, 0.22);
         hitStop = 0.07;
       }
@@ -3706,8 +4068,8 @@
             }
           }
 
-          if (protectedByShrine) {
-            addPopup(h.x, h.y - 18 * worldScale, 'SHRINE BLOCKED!', '#5eead4', true);
+          if (protectedByShrine || powerActive('shield')) {
+            addPopup(h.x, h.y - 18 * worldScale, powerActive('shield') ? 'SHIELDED!' : 'SHRINE BLOCKED!', '#5eead4', true);
           } else {
             let lostCount = 0;
             for (let kIdx = school.length - 1; kIdx >= 0; kIdx--) {
@@ -3727,13 +4089,13 @@
                 lostCount++;
               }
               addPopup(h.x, h.y - 22 * worldScale, lostCount ? `HERON STRIKE! -${lostCount} KOI` : 'HERON STRIKE!', '#ff4d67', true);
-              KoiAnalytics.track('enemy_hit', { hazard: 'heron', target: 'lead', koi_lost: lostCount, school_bucket: bucketSchool(schoolBefore) });
+              noteHit(); KoiAnalytics.track('enemy_hit', { hazard: 'heron', target: 'lead', koi_lost: lostCount, school_bucket: bucketSchool(schoolBefore) });
               triggerShake(6, 0.24);
               hitStop = 0.08;
             } else if (lostCount > 0) {
               mercy = 2.5;
               addPopup(h.x, h.y - 22 * worldScale, `HERON CAUGHT ${lostCount} KOI!`, '#ff4d67', true);
-              KoiAnalytics.track('enemy_hit', { hazard: 'heron', target: 'school', koi_lost: lostCount, school_bucket: bucketSchool(schoolBefore) });
+              noteHit(); KoiAnalytics.track('enemy_hit', { hazard: 'heron', target: 'school', koi_lost: lostCount, school_bucket: bucketSchool(schoolBefore) });
               triggerShake(5, 0.2);
               hitStop = 0.05;
             } else {
@@ -4001,6 +4363,22 @@
         ctx.beginPath();
         ctx.arc(fx, fy, f.r * 0.75, 0, TAU);
         ctx.fill();
+      } else if (f.kind === 'power') {
+        const pi = POWER_INFO[f.ptype] || POWER_INFO.shield;
+        const pulse = 1 + Math.sin(f.phase * 1.6) * 0.15;
+        const g = ctx.createRadialGradient(fx, fy, 2, fx, fy, f.r * 3 * pulse);
+        g.addColorStop(0, pi.color);
+        g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        ctx.globalAlpha = 0.55;
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(fx, fy, f.r * 3 * pulse, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = 'rgba(6, 16, 22, 0.9)';
+        ctx.strokeStyle = pi.color;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath(); ctx.arc(fx, fy, f.r, 0, TAU); ctx.fill(); ctx.stroke();
+        drawPowerIcon(f.ptype, fx, fy, f.r * 0.6, pi.color);
+        if (f.life < 4 && Math.floor(f.life * 6) % 2 === 0) ctx.globalAlpha = 0.4;
       } else if (f.kind === 'leaf') {
         ctx.fillStyle = 'rgba(255, 140, 60, 0.25)';
         ctx.beginPath();
@@ -4069,7 +4447,10 @@
   }
 
   function renderIKKoi(koi) {
-    const v = VARIETIES[koi.variety] || VARIETIES.kohaku;
+    const rareDef = koi.rare && RARES[koi.rare] ? RARES[koi.rare] : null;
+    const v = rareDef || VARIETIES[koi.variety] || VARIETIES.kohaku;
+    const vpat = rareDef ? rareDef.pattern : koi.variety;
+    const fs = v.finScale || 1;
     const nodes = koi.nodes;
     const maxRadius = (koi.isLead ? 12.2 : 9.6) * worldScale * (koi.isLead ? (1 + koi.chompTimer * 0.14) : koi.scale);
 
@@ -4095,6 +4476,18 @@
 
     ctx.save();
 
+    if (v.glow) {
+      const gp = nodes[4];
+      const pr = maxRadius * (3.2 + Math.sin(totalTime * 3 + koi.seed) * 0.5);
+      const gg = ctx.createRadialGradient(gp.x, gp.y, 1, gp.x, gp.y, pr);
+      gg.addColorStop(0, v.glow);
+      gg.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = gg;
+      ctx.beginPath();
+      ctx.arc(gp.x, gp.y, pr, 0, TAU);
+      ctx.fill();
+    }
+
     // 1. Soft Water Drop Shadow beneath fish
     ctx.save();
     ctx.translate(6 * worldScale, 9 * worldScale);
@@ -4105,8 +4498,8 @@
 
     // 2. Translucent Pectoral & Pelvic Fins
     const finNodes = [
-      { idx: 3, len: maxRadius * 1.65, width: maxRadius * 0.72, sweep: 0.55 },
-      { idx: 7, len: maxRadius * 0.95, width: maxRadius * 0.45, sweep: 0.65 }
+      { idx: 3, len: maxRadius * 1.65 * fs, width: maxRadius * 0.72, sweep: 0.55 },
+      { idx: 7, len: maxRadius * 0.95 * fs, width: maxRadius * 0.45, sweep: 0.65 }
     ];
     for (const fn of finNodes) {
       const pt = nodes[fn.idx];
@@ -4132,7 +4525,7 @@
     const tailBase = nodes[IK_NODES - 1];
     const tailPrev = nodes[IK_NODES - 3];
     const tailAng = Math.atan2(tailBase.y - tailPrev.y, tailBase.x - tailPrev.x);
-    const tailLen = maxRadius * 1.9;
+    const tailLen = maxRadius * 1.9 * fs;
     const tailSpread = maxRadius * 1.15;
 
     ctx.save();
@@ -4155,13 +4548,15 @@
     ctx.clip();
 
     // Variety markings
-    if (koi.variety === 'tancho') {
+    if (vpat === 'plain') {
+      // solid metallic body, no markings
+    } else if (vpat === 'tancho') {
       // Classic crimson crown spot on forehead
       ctx.fillStyle = v.patchColor;
       ctx.beginPath();
       ctx.arc(nodes[1].x, nodes[1].y, maxRadius * 0.56, 0, TAU);
       ctx.fill();
-    } else if (koi.variety === 'asagi') {
+    } else if (vpat === 'asagi') {
       // Crimson flanks along mid-body
       ctx.fillStyle = v.patchColor;
       for (const idx of [4, 6, 8]) {
@@ -4773,6 +5168,7 @@
       ctx.restore();
     }
 
+    renderPowerAura();
     renderCoach();
     renderSteerHint();
     renderTouchJoystick();
@@ -4848,6 +5244,8 @@
   let cachedPassiveStr = '';
   let cachedComboStr = '';
   let cachedOrderSig = '';
+  let cachedDailyStr = '';
+  const elDailyPill = document.getElementById('daily-pill');
   let yenPopTimer = null;
 
   function triggerYenPop() {
@@ -4917,6 +5315,21 @@
       elOrderPill.title = `${ord.order.title}: have these koi in your school when you sell for +${Math.round(ord.order.bonus * 100)}%`;
     }
 
+    // Daily challenge pill
+    {
+      const d = ensureDaily();
+      const def = dailyDef();
+      const prog = def.id === 'earn'
+        ? `¥${Math.min(d.progress, d.target).toLocaleString()}/${d.target.toLocaleString()}`
+        : `${Math.min(d.progress, d.target)}/${d.target}`;
+      const txt = d.done ? `✔ Daily done • 🔥 ${save.streak || 1}` : `☀ ${def.label(d.target)} <b>${prog}</b>`;
+      if (txt !== cachedDailyStr) {
+        cachedDailyStr = txt;
+        elDailyPill.innerHTML = txt;
+        elDailyPill.classList.toggle('done', !!d.done);
+      }
+    }
+
     // Shop Notification Dot
     elShopNotif.classList.toggle('show', canAffordAnyShopItem());
 
@@ -4941,6 +5354,7 @@
   const tabVarieties = document.getElementById('tab-varieties');
   const tabUpgrades = document.getElementById('tab-upgrades');
   const tabPonds = document.getElementById('tab-ponds');
+  const tabBook = document.getElementById('tab-book');
   let activeShopTab = 'varieties';
 
   const toastEl = document.getElementById('toast');
@@ -4974,7 +5388,35 @@
     tabVarieties.classList.toggle('active', activeShopTab === 'varieties');
     tabUpgrades.classList.toggle('active', activeShopTab === 'upgrades');
     tabPonds.classList.toggle('active', activeShopTab === 'ponds');
+    tabBook.classList.toggle('active', activeShopTab === 'book');
     shopGrid.innerHTML = '';
+
+    if (activeShopTab === 'book') {
+      const found = RARE_KEYS.filter(k => save.collection[k]).length;
+      const head = document.createElement('div');
+      head.className = 'item-card';
+      const d = ensureDaily();
+      head.innerHTML = `
+        <div class="item-top"><div class="item-title">Rare Koi Book</div><span class="item-badge">${found}/${RARE_KEYS.length} FOUND</span></div>
+        <div class="item-desc">About 1 in 25 new koi hatches rare. Rare koi glow and sell for 3\u00D7. Finish the daily challenge to guarantee your next one.</div>
+        <div class="item-desc" style="color:var(--gold);">Today: ${dailyDef().label(d.target)} ${d.done ? '\u2714' : ''} \u2022 Streak \uD83D\uDD25 ${save.streak || 0} \u2022 Best catch \u00A5${(save.bestSale || 0).toLocaleString()}</div>`;
+      shopGrid.appendChild(head);
+      const ordered = RARE_KEYS.slice().sort((a, b) => (save.collection[b] ? 1 : 0) - (save.collection[a] ? 1 : 0));
+      for (const k of ordered) {
+        const r = RARES[k];
+        const n = save.collection[k] || 0;
+        const card = document.createElement('div');
+        card.className = `item-card${n ? ' equipped' : ''}`;
+        card.innerHTML = `
+          <div class="item-top">
+            <div class="item-title"><span class="koi-swatch" style="background:${n ? r.swatch : 'rgba(164,206,224,0.15)'};"></span>${n ? r.name : '???'}</div>
+            <span class="item-badge">${n ? 'CAUGHT \u00D7' + n : 'NOT FOUND'}</span>
+          </div>
+          <div class="item-desc">${n ? 'Sells for 3\u00D7. Glows in your school.' : 'Keep growing your school to find it.'}</div>`;
+        shopGrid.appendChild(card);
+      }
+      return;
+    }
 
     if (activeShopTab === 'ponds') {
       const sold = save.totalHarvested || 0;
@@ -5187,7 +5629,11 @@
 
   // Returning players see their treasury on the cover.
   try {
-    if ((save.sessions || 1) > 1 && save.yen > 0) {
+    if (friendBest > 0) {
+      const fw = document.getElementById('splash-welcome');
+      fw.textContent = `A friend sold a catch for \u00A5${friendBest.toLocaleString()}. Can you beat it?`;
+      fw.hidden = false;
+    } else if ((save.sessions || 1) > 1 && save.yen > 0) {
       const w = document.getElementById('splash-welcome');
       w.textContent = `Welcome back \u2022 \u00A5${save.yen.toLocaleString()} in your treasury`;
       w.hidden = false;
@@ -5227,6 +5673,14 @@
   tabVarieties.addEventListener('click', () => { activeShopTab = 'varieties'; renderShop(); });
   tabUpgrades.addEventListener('click', () => { activeShopTab = 'upgrades'; renderShop(); });
   tabPonds.addEventListener('click', () => { activeShopTab = 'ponds'; renderShop(); });
+  tabBook.addEventListener('click', () => { activeShopTab = 'book'; renderShop(); });
+  document.getElementById('share-pill').addEventListener('click', (e) => { e.stopPropagation(); doShare(); });
+  elDailyPill.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const d = ensureDaily();
+    showToast(d.done ? `Daily done! \uD83D\uDD25 ${save.streak || 1}-day streak` : `Daily: ${dailyDef().label(d.target)}`,
+      d.done ? 'Come back tomorrow for a new challenge.' : `Reward: \u00A5${dailyReward()} + a guaranteed rare koi`);
+  });
 
   document.getElementById('btn-open-settings').addEventListener('click', openSettings);
   document.getElementById('btn-close-settings').addEventListener('click', closeSettings);
@@ -5506,6 +5960,11 @@
       get lead() { return leadKoi; }, foods, school, turtles, herons, pier,
       get runTime() { return runTime; }, get coachStep() { return coach.step; },
       get idleTime() { return idleTime; },
+      addKoi: (rare) => { if (rare) save.rareTicket = 1; addSchoolKoi(); },
+      spawnPower: (t) => { spawnFood('power', leadKoi.x + 60, leadKoi.y); foods[foods.length - 1].ptype = t; },
+      get daily() { return save.daily; },
+      harvest: () => executeHarvest(),
+      card: () => buildShareCard(9, 4820, 'dragon', canvas).toDataURL('image/png'),
       setPond: (id) => { save.totalHarvested = Math.max(save.totalHarvested || 0, PONDS[id].unlockAt); setPond(id); },
       save
     };

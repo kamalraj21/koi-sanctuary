@@ -156,6 +156,62 @@
     font-weight: 600;
   }
 
+  #pause-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(3, 10, 15, 0.62);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  #pause-overlay.open { opacity: 1; pointer-events: auto; }
+  .pause-card {
+    width: 100%;
+    max-width: 340px;
+    background: rgba(10, 23, 32, 0.96);
+    border: 1px solid rgba(164, 206, 224, 0.26);
+    border-radius: 20px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8);
+    padding: 22px 20px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+  .pause-title {
+    font-family: "Iowan Old Style", Palatino, Georgia, serif;
+    font-size: 34px;
+    font-weight: 700;
+    color: #f4f9fb;
+  }
+  .pause-sub { font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; }
+  .pause-btn {
+    min-height: 46px;
+    border-radius: 13px;
+    border: 1px solid rgba(164, 206, 224, 0.25);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-main);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .pause-btn:active { transform: scale(0.97); }
+  .pause-btn.primary {
+    border: none;
+    background: linear-gradient(135deg, #ffd269, #e59d2c);
+    color: #131b20;
+    font-weight: 800;
+  }
+  .pause-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .pause-help { font-size: 11.5px; color: var(--text-muted); line-height: 1.5; margin-top: 4px; }
+
   .daily-pill {
     display: inline-flex;
     align-items: center;
@@ -1144,6 +1200,9 @@
 
     <!-- Top-Right 44x44 Touch Targets -->
     <div class="hud-right-actions">
+      <button id="btn-pause" class="icon-btn" type="button" aria-label="Pause" title="Pause (P)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4.5" width="4.2" height="15" rx="1.3"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.3"/></svg>
+      </button>
       <button id="btn-sound" class="icon-btn" type="button" aria-label="Sound on" title="Sound on / off"></button>
       <button id="btn-open-shop" class="icon-btn" type="button" aria-label="Farm Shop" title="Farm Shop">
         <span id="shop-notif" class="notif-dot"></span>
@@ -1190,6 +1249,23 @@
 </div>
 
 <div id="toast"></div>
+
+<div id="pause-overlay" role="dialog" aria-labelledby="pause-title" aria-modal="true">
+  <div class="pause-card">
+    <div id="pause-title" class="pause-title">Paused</div>
+    <div id="pause-sub" class="pause-sub">The pond waits for you.</div>
+    <button id="pause-resume" class="pause-btn primary" type="button">&#9654;&nbsp; Resume</button>
+    <div class="pause-row">
+      <button id="pause-sound" class="pause-btn" type="button">Sound: On</button>
+      <button id="pause-fx" class="pause-btn" type="button">Effects: High</button>
+    </div>
+    <div class="pause-row">
+      <button id="pause-settings" class="pause-btn" type="button">Settings</button>
+      <button id="pause-full" class="pause-btn" type="button">Fullscreen</button>
+    </div>
+    <div class="pause-help">Steer: drag / mouse / WASD &bull; Dash: hold &#9889; / click / Space<br>Pause: P or Esc</div>
+  </div>
+</div>
 
 <!-- =========================================================
      WELCOME OVERLAY
@@ -1315,7 +1391,7 @@
 (() => {
   'use strict';
 
-  const BUILD = 'pilot-8';
+  const BUILD = 'pilot-9';
 
   // Safari < 16 and older Android WebViews lack roundRect; the pier and labels need it.
   if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
@@ -1802,6 +1878,7 @@
   }
 
   let save = loadSave();
+  if (save.fxPinned && save.fxLevel) { /* restored below */ }
   save.sessions = (save.sessions || 0) + 1;
 
   // Writes are batched: passive income ticks every second and synchronous
@@ -2384,6 +2461,8 @@
   let idleTime = 0;         // seconds since the player last steered or dashed
   let hasSteered = false;   // selling only counts once a real player has steered
   let mercy = 0;            // seconds of grace after any hit: no new bites, no new herons
+  let paused = false;
+  let fxLevel = save.fxPinned && save.fxLevel === 'low' ? 'low' : 'high'; // drops to low automatically on slow devices
   let steerHintShown = false;
   let hitStop = 0;          // brief slow-motion on impactful hits
   let shakeDur = 0.25;
@@ -3023,7 +3102,11 @@
      ENGAGEMENT: power-ups, daily challenge + streak, rare koi, share card
      ========================================================================= */
   let hitsSinceSale = 0;
-  function noteHit() { hitsSinceSale++; }
+  function noteHit() {
+    hitsSinceSale++;
+    try { if (navigator.vibrate) navigator.vibrate(35); } catch (_) {}
+    if (leadKoi) splash(leadKoi.x, leadKoi.y, hiFx() ? 10 : 4, 'rgba(255, 120, 140, 0.9)', 1);
+  }
 
   // Favour rares the player has not found yet, so the book fills steadily.
   function pickRare() {
@@ -3757,6 +3840,8 @@
 
     Sound.kotoArpeggio(bd.orderComplete ? 6 : 4, bd.orderComplete ? 1 : 0);
     afterHarvest(count, bd, rareInCatch);
+    petalBurst(pier.basketX, pier.basketY, bd.orderComplete ? (hiFx() ? 60 : 24) : (hiFx() ? 26 : 10));
+    splash(pier.basketX, pier.basketY, hiFx() ? 18 : 6, 'rgba(220, 244, 255, 0.9)', 1.3);
     school.length = 0;
     checkPondUnlocks();
     harvestCharge = 0;
@@ -4147,6 +4232,7 @@
     updateSnakes(dt);
     updateBoss(dt);
     updateWeather(dt);
+    updateFx(dt);
 
     // 6. Surface Lily Pad Occlusion Fade (Smoothly fades when koi swim beneath)
     for (const pad of lilies) {
@@ -4263,6 +4349,7 @@
 
     addRipple(f.x, f.y, special ? 62 : 42, special ? 'rgba(255, 210, 105, 0.65)' : 'rgba(215, 242, 255, 0.45)', 1.8);
     addParticles(f.x, f.y, special ? 10 : 5, special ? '#ffd269' : '#f3c669', 65, 2.3);
+    splash(f.x, f.y, special ? 10 : 5, special ? 'rgba(255, 226, 140, 0.95)' : 'rgba(220, 244, 255, 0.9)', special ? 1.1 : 0.8);
     addPopup(f.x, f.y - 12 * worldScale, `+¥${earned}`, special ? '#5eead4' : '#ffd269', special);
     Sound.plop(comboHits, special);
   }
@@ -5341,8 +5428,8 @@
     for (const pad of lilies) {
       const swayX = Math.sin(totalTime * 0.75 + pad.phase) * 3 * worldScale;
       const swayY = Math.cos(totalTime * 0.62 + pad.phase) * 2.5 * worldScale;
-      const cx = pad.x + swayX;
-      const cy = pad.y + swayY;
+      const cx = pad.x + swayX + (pad.ox || 0);
+      const cy = pad.y + swayY + (pad.oy || 0);
 
       ctx.save();
       ctx.globalAlpha = pad.alpha;
@@ -5561,6 +5648,8 @@
     renderCaustics();
     renderLotusShrines();
 
+    renderUnderFx();
+
     // Expanding Water Ripples
     for (const rp of ripples) {
       ctx.save();
@@ -5593,6 +5682,7 @@
     renderWeather();
     renderNight();
     renderBoss();
+    renderOverFx();
 
     for (const p of particles) {
       ctx.save();
@@ -5646,10 +5736,264 @@
   /* =========================================================================
      10. MAIN LOOP (GUARANTEED UNCONDITIONAL START)
      ========================================================================= */
+  /* =========================================================================
+     PAUSE
+     ========================================================================= */
+  const pauseOverlay = document.getElementById('pause-overlay');
+  function pauseGame(reason = 'manual') {
+    if (paused || state !== 'playing') return;
+    paused = true;
+    keys.clear();
+    touchDashHeld = false;
+    joystick.active = false;
+    pointer.down = false;
+    document.getElementById('pause-sub').textContent = reason === 'auto'
+      ? 'Paused while you were away.' : 'The pond waits for you.';
+    syncPauseButtons();
+    pauseOverlay.classList.add('open');
+    Sound.stopAmbient();
+    flushPersist();
+    KoiAnalytics.track('pause', { reason });
+  }
+  function resumeGame() {
+    if (!paused) return;
+    paused = false;
+    pauseOverlay.classList.remove('open');
+    lastTime = performance.now();
+    if (save.soundOn) Sound.startAmbient();
+  }
+  function syncPauseButtons() {
+    document.getElementById('pause-sound').textContent = `Sound: ${save.soundOn ? 'On' : 'Off'}`;
+    document.getElementById('pause-fx').textContent = `Effects: ${fxLevel === 'high' ? 'High' : 'Low'}`;
+    const canFs = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+    const fsBtn = document.getElementById('pause-full');
+    fsBtn.disabled = !canFs;
+    fsBtn.style.opacity = canFs ? '1' : '0.4';
+    fsBtn.textContent = (document.fullscreenElement || document.webkitFullscreenElement) ? 'Exit fullscreen' : 'Fullscreen';
+  }
+
+  /* =========================================================================
+     ADAPTIVE EFFECTS: drop to low effects if the device can't hold ~45 fps
+     ========================================================================= */
+  let perfAcc = 0, perfFrames = 0, perfSlow = 0;
+  function trackPerf(ms) {
+    if (!(ms > 0) || ms > 250 || paused || state !== 'playing') return;
+    perfAcc += ms; perfFrames++;
+    if (perfFrames >= 90) {
+      const avg = perfAcc / perfFrames;
+      perfAcc = 0; perfFrames = 0;
+      if (avg > 22) perfSlow++; else perfSlow = Math.max(0, perfSlow - 1);
+      if (perfSlow >= 2 && fxLevel === 'high' && !save.fxPinned) {
+        fxLevel = 'low';
+        KoiAnalytics.track('fx_auto_low', { avg_ms: Math.round(avg) });
+      }
+    }
+  }
+  const hiFx = () => fxLevel === 'high';
+
+  /* =========================================================================
+     WATER PHYSICS + PARTICLES
+     ========================================================================= */
+  const drops = [];     // splash droplets with height (z) and gravity
+  const bubbles = [];   // rising bubbles that pop into tiny rings
+  const glints = [];    // sun glints twinkling on the surface
+  const petals = [];    // celebration petals
+
+  function splash(x, y, n, color, power = 1) {
+    const cap = hiFx() ? 160 : 60;
+    for (let i = 0; i < n && drops.length < cap; i++) {
+      const a = Math.random() * TAU;
+      const sp = (40 + Math.random() * 70) * power * worldScale;
+      drops.push({ x, y, z: 0, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        vz: (90 + Math.random() * 90) * power * worldScale, life: 1, color, r: (1.4 + Math.random() * 1.6) * worldScale });
+    }
+  }
+  function petalBurst(x, y, n) {
+    const cols = ['#f9a8d4', '#fde68a', '#fbcfe8', '#ffd269', '#5eead4'];
+    for (let i = 0; i < n && petals.length < 120; i++) {
+      const a = Math.random() * TAU, sp = (60 + Math.random() * 140) * worldScale;
+      petals.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40 * worldScale, rot: Math.random() * TAU,
+        vr: (Math.random() - 0.5) * 8, life: 1.6 + Math.random() * 0.8, color: cols[i % cols.length], r: (4 + Math.random() * 3) * worldScale });
+    }
+  }
+
+  // Tail trails for each koi, used for wakes
+  function pushTrail(k) {
+    const tail = k.nodes[k.nodes.length - 1];
+    k.trail = k.trail || [];
+    const last = k.trail[k.trail.length - 1];
+    if (!last || Math.hypot(last.x - tail.x, last.y - tail.y) > 6 * worldScale) {
+      k.trail.push({ x: tail.x, y: tail.y, a: 1 });
+      if (k.trail.length > (k.isLead ? 22 : 12)) k.trail.shift();
+    }
+    for (const p of k.trail) p.a -= 0.025;
+    while (k.trail.length && k.trail[0].a <= 0) k.trail.shift();
+  }
+
+  function updateFx(dt) {
+    if (!leadKoi) return;
+    // Wakes
+    pushTrail(leadKoi);
+    if (hiFx()) for (const fk of school) pushTrail(fk);
+
+    // Turn spray + dash bubbles (physics feedback for speed and turning)
+    const dAng = leadKoi._lastAngle === undefined ? 0 : Math.abs(((leadKoi.angle - leadKoi._lastAngle + Math.PI * 3) % TAU) - Math.PI);
+    leadKoi._lastAngle = leadKoi.angle;
+    const turnRate = dAng / Math.max(dt, 0.001);
+    const tail = leadKoi.nodes[leadKoi.nodes.length - 1];
+    if (turnRate > 3.2 && leadKoi.speed > 120 * worldScale && Math.random() < dt * 14) {
+      splash(tail.x, tail.y, hiFx() ? 3 : 1, 'rgba(215, 242, 255, 0.9)', 0.6);
+    }
+    if (isDashing && Math.random() < dt * (hiFx() ? 30 : 10)) {
+      bubbles.push({ x: tail.x + (Math.random() - 0.5) * 10, y: tail.y + (Math.random() - 0.5) * 10,
+        r: (1.5 + Math.random() * 2.5) * worldScale, life: 0.6 + Math.random() * 0.5, vx: 0, vy: 0, dash: true });
+    }
+    // Ambient bubbles rising from the floor
+    if (Math.random() < dt * (hiFx() ? 1.6 : 0.5) && bubbles.length < 40) {
+      bubbles.push({ x: Math.random() * W, y: 80 + Math.random() * (H - 120), r: (1.5 + Math.random() * 2.2) * worldScale,
+        life: 1.8 + Math.random() * 1.6, vx: (Math.random() - 0.5) * 6, vy: -4 - Math.random() * 6 });
+    }
+    for (let i = bubbles.length - 1; i >= 0; i--) {
+      const b = bubbles[i];
+      b.life -= dt;
+      b.x += b.vx * dt; b.y += b.vy * dt;
+      if (b.life <= 0) {
+        if (!b.dash && hiFx()) addRipple(b.x, b.y, 14, 'rgba(215, 242, 255, 0.35)', 1);
+        bubbles.splice(i, 1);
+      }
+    }
+    // Glints
+    if (hiFx() && glints.length < 14 && Math.random() < dt * 3) {
+      glints.push({ x: Math.random() * W, y: 60 + Math.random() * (H - 80), life: 0.9 + Math.random() * 0.7, max: 0, s: (3 + Math.random() * 4) * worldScale });
+      glints[glints.length - 1].max = glints[glints.length - 1].life;
+    }
+    for (let i = glints.length - 1; i >= 0; i--) { glints[i].life -= dt; if (glints[i].life <= 0) glints.splice(i, 1); }
+    // Droplets: simple ballistic arc with gravity, plus a tiny ring when they land
+    for (let i = drops.length - 1; i >= 0; i--) {
+      const d = drops[i];
+      d.x += d.vx * dt; d.y += d.vy * dt;
+      d.vz -= 520 * worldScale * dt;
+      d.z += d.vz * dt;
+      d.vx *= 0.98; d.vy *= 0.98;
+      if (d.z <= 0 && d.vz < 0) {
+        if (hiFx() && Math.random() < 0.35) addRipple(d.x, d.y, 10, 'rgba(215, 242, 255, 0.4)', 0.9);
+        drops.splice(i, 1);
+      }
+    }
+    for (let i = petals.length - 1; i >= 0; i--) {
+      const p = petals[i];
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vx *= 0.94; p.vy = p.vy * 0.94 + 18 * worldScale * dt;
+      p.rot += p.vr * dt;
+      p.life -= dt;
+      if (p.life <= 0) petals.splice(i, 1);
+    }
+    // Lily pads get nudged by passing koi and spring back (water push)
+    for (const pad of lilies) {
+      pad.ox = pad.ox || 0; pad.oy = pad.oy || 0; pad.vx = pad.vx || 0; pad.vy = pad.vy || 0; pad.spin = pad.spin || 0;
+      const movers = [leadKoi, ...school];
+      for (const k of movers) {
+        const dx = (pad.x + pad.ox) - k.x, dy = (pad.y + pad.oy) - k.y;
+        const d = Math.hypot(dx, dy);
+        const reach = pad.r + 26 * worldScale;
+        if (d < reach && d > 1) {
+          const f = (1 - d / reach) * (k.speed || 80) * 0.9;
+          pad.vx += (dx / d) * f * dt;
+          pad.vy += (dy / d) * f * dt;
+          pad.spin += ((dx * Math.sin(k.angle) - dy * Math.cos(k.angle)) / d) * f * 0.002;
+        }
+      }
+      pad.vx += -pad.ox * 6 * dt; pad.vy += -pad.oy * 6 * dt;
+      pad.vx *= 0.9; pad.vy *= 0.9; pad.spin *= 0.95;
+      pad.ox += pad.vx * dt; pad.oy += pad.vy * dt;
+      pad.ox = Math.max(-26, Math.min(26, pad.ox)); pad.oy = Math.max(-26, Math.min(26, pad.oy));
+      pad.notch += pad.spin * dt;
+    }
+  }
+
+  function renderWakes() {
+    const draw = (k, w, a0) => {
+      const tr = k.trail;
+      if (!tr || tr.length < 3) return;
+      // V-shaped wake: two fading lines spreading out from the tail path
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        for (let i = 0; i < tr.length; i++) {
+          const p = tr[i], q = tr[Math.max(0, i - 1)];
+          const ang = Math.atan2(p.y - q.y, p.x - q.x) + Math.PI / 2;
+          const spread = (tr.length - i) * w;
+          const x = p.x + Math.cos(ang) * spread * side, y = p.y + Math.sin(ang) * spread * side;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = `rgba(215, 242, 255, ${a0})`;
+        ctx.lineWidth = 1.3 * worldScale;
+        ctx.stroke();
+      }
+    };
+    ctx.save();
+    ctx.lineCap = 'round';
+    draw(leadKoi, 0.9 * worldScale, isDashing ? 0.22 : 0.12);
+    if (hiFx()) for (const fk of school) draw(fk, 0.6 * worldScale, 0.07);
+    ctx.restore();
+  }
+
+  function renderUnderFx() {
+    if (!leadKoi) return;
+    for (const g of glints) {
+      const k = Math.sin((g.life / g.max) * Math.PI);
+      ctx.save();
+      ctx.globalAlpha = k * 0.55;
+      ctx.strokeStyle = '#eaf8ff';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(g.x - g.s, g.y); ctx.lineTo(g.x + g.s, g.y);
+      ctx.moveTo(g.x, g.y - g.s * 0.6); ctx.lineTo(g.x, g.y + g.s * 0.6);
+      ctx.stroke();
+      ctx.restore();
+    }
+    for (const b of bubbles) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, b.life) * (b.dash ? 0.75 : 0.45);
+      ctx.strokeStyle = '#d7f2ff';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, TAU); ctx.stroke();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.beginPath(); ctx.arc(b.x - b.r * 0.35, b.y - b.r * 0.35, b.r * 0.3, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+    renderWakes();
+  }
+
+  function renderOverFx() {
+    for (const d of drops) {
+      // shadow on the water + droplet lifted by its height
+      ctx.fillStyle = 'rgba(2, 8, 12, 0.35)';
+      ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, TAU); ctx.fill();
+      ctx.fillStyle = d.color;
+      ctx.beginPath(); ctx.arc(d.x, d.y - d.z * 0.5, d.r, 0, TAU); ctx.fill();
+    }
+    for (const p of petals) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, p.life);
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.ellipse(0, 0, p.r, p.r * 0.5, 0, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+  }
+
   function frame(now) {
     const dt = Math.min((now - lastTime) / 1000, 0.05);
     lastTime = now;
 
+    trackPerf(now - (frame._prev || now));
+    frame._prev = now;
+    if (paused) {
+      renderFrame();
+      requestAnimationFrame(frame);
+      return;
+    }
     if (shakeTime > 0) shakeTime = Math.max(0, shakeTime - dt);
     if (state === 'playing') {
       let simDt = dt;
@@ -5799,6 +6143,8 @@
 
     // Shop Notification Dot
     elShopNotif.classList.toggle('show', canAffordAnyShopItem());
+
+    document.getElementById('btn-pause').style.visibility = (state === 'playing' || paused) ? 'visible' : 'hidden';
 
     // Mobile Dash Button Radial Ring
     if (inputMode === 'touch' && state === 'playing') {
@@ -6078,6 +6424,47 @@
     settingsOverlay.classList.add('open');
   }
 
+  document.getElementById('btn-pause').addEventListener('click', (e) => { e.stopPropagation(); pauseGame('manual'); });
+  document.getElementById('pause-resume').addEventListener('click', resumeGame);
+  pauseOverlay.addEventListener('click', (e) => { if (e.target === pauseOverlay) resumeGame(); });
+  document.getElementById('pause-sound').addEventListener('click', () => {
+    save.soundOn = !save.soundOn;
+    persist();
+    syncSoundButton();
+    syncSettingsUI();
+    syncPauseButtons();
+    if (save.soundOn) { Sound.unlock(); Sound.plop(3, false); }
+  });
+  document.getElementById('pause-fx').addEventListener('click', () => {
+    fxLevel = fxLevel === 'high' ? 'low' : 'high';
+    save.fxPinned = true;
+    save.fxLevel = fxLevel;
+    persist();
+    syncPauseButtons();
+  });
+  document.getElementById('pause-settings').addEventListener('click', () => {
+    paused = false;
+    pauseOverlay.classList.remove('open');
+    openSettings();
+  });
+  document.getElementById('pause-full').addEventListener('click', () => {
+    try {
+      const el = document.documentElement;
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      } else {
+        const p = (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+        if (p && p.catch) p.catch(() => {});
+      }
+    } catch (_) {}
+    setTimeout(syncPauseButtons, 300);
+  });
+  // Auto-pause when the player switches app/tab or the window loses focus
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') pauseGame('auto');
+  });
+  window.addEventListener('blur', () => { if (state === 'playing' && !paused) pauseGame('auto'); });
+
   function closeSettings() {
     settingsOverlay.classList.remove('open');
     state = 'playing';
@@ -6257,6 +6644,11 @@
       document.getElementById('btn-enter-pond').click();
       return;
     }
+    if (k === 'p' || (k === 'escape' && state === 'playing')) {
+      if (paused) resumeGame(); else if (state === 'playing') pauseGame('manual');
+      return;
+    }
+    if (paused) return;
     keys.add(k);
     if (k === 'escape') {
       if (state === 'shop') closeShop();
@@ -6432,6 +6824,9 @@
       get daily() { return save.daily; },
       harvest: () => executeHarvest(),
       startBoss: () => startBoss(),
+      pause: () => pauseGame('manual'),
+      get paused() { return paused; },
+      get fx() { return { drops: drops.length, bubbles: bubbles.length, petals: petals.length, level: fxLevel }; },
       spawnSnake: () => spawnSnake(),
       get boss() { return boss; },
       snakes,

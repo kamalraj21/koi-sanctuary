@@ -1269,7 +1269,7 @@
 (() => {
   'use strict';
 
-  const BUILD = 'pilot-3';
+  const BUILD = 'pilot-4';
 
   // Safari < 16 and older Android WebViews lack roundRect; the pier and labels need it.
   if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
@@ -2017,6 +2017,8 @@
   let runTime = 0;          // seconds of active play since the pond was entered
   let idleTime = 0;         // seconds since the player last steered or dashed
   let hasSteered = false;   // selling only counts once a real player has steered
+  let mercy = 0;            // seconds of grace after any hit: no new bites, no new herons
+  let steerHintShown = false;
   let hitStop = 0;          // brief slow-motion on impactful hits
   let shakeDur = 0.25;
   let inputMode = 'mouse';  // 'mouse' | 'touch', follows the last real pointer used
@@ -2481,6 +2483,7 @@
 
     runTime = 0;
     idleTime = 0;
+    mercy = 0;
     coach.step = 'eat';
     coach.hazardShown = false;
     coach.hazardLabel = null;
@@ -2496,7 +2499,7 @@
   function spawnOnboardingTrail() {
     if (!isFirstRun() || !leadKoi) return;
     {
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 3; i++) {
         const ang = leadKoi.angle + 0.35 * i;
         const d = (70 + i * 62) * worldScale;
         const tx = Math.max(50, Math.min(W - 50, leadKoi.x + Math.cos(ang) * d));
@@ -2645,6 +2648,7 @@
 
     runTime += dt;
     if (leadInvuln > 0) leadInvuln = Math.max(0, leadInvuln - dt);
+    if (mercy > 0) mercy = Math.max(0, mercy - dt);
 
     // Combo decay
     if (comboTimer > 0) {
@@ -2938,12 +2942,12 @@
       const first = isFirstRun();
       const turtleOk = first ? (runTime > 16 || school.length >= 1) : runTime > 5;
       const heronOk = first ? (runTime > 24 && school.length >= 2) : (runTime > 9 && school.length >= 1);
-      const targetTurtles = school.length >= 1 ? Math.min(3, 1 + Math.floor(school.length / 4)) : 1;
+      const targetTurtles = school.length >= 1 ? Math.min(2, 1 + Math.floor(school.length / 5)) : 1;
       if (turtleOk && turtles.length < targetTurtles && Math.random() < dt * (turtles.length === 0 ? 1.2 : 0.35)) {
         spawnTurtle();
       }
 
-      if (heronOk) {
+      if (heronOk && mercy <= 0) {
         hazardSpawnTimer -= dt;
         if (hazardSpawnTimer <= 0) {
           hazardSpawnTimer = Math.max(3.4, 7.0 - school.length * 0.3);
@@ -3143,11 +3147,16 @@
       }
 
       // Bite check against school koi during lunge
-      if (t.hitCooldown <= 0 && t.aiState === 'lunge') {
+      if (t.hitCooldown <= 0 && t.aiState === 'lunge' && mercy <= 0) {
         for (let kIdx = school.length - 1; kIdx >= 0; kIdx--) {
           const fk = school[kIdx];
           if (Math.hypot(fk.x - t.x, fk.y - t.y) < t.r + 14 * worldScale) {
-            t.hitCooldown = 1.5;
+            t.hitCooldown = 3.0;
+            mercy = 2.5;
+            // After a bite the turtle turns away and rests, so hits never chain.
+            t.aiState = 'recovery';
+            t.stateTimer = 1.8;
+            t.angle += Math.PI;
             addParticles(fk.x, fk.y, 14, '#ff2442', 100, 3.0);
             addPopup(fk.x, fk.y - 20 * worldScale, 'SNAPPED! -1 KOI', '#ff4d67', true);
             school.splice(kIdx, 1);
@@ -3166,11 +3175,13 @@
         const bumpAng = Math.atan2(leadKoi.y - t.y, leadKoi.x - t.x);
         leadKoi.x += Math.cos(bumpAng) * 90 * worldScale * (1 / 60);
         leadKoi.y += Math.sin(bumpAng) * 90 * worldScale * (1 / 60);
-      } else if (leadTouch && t.hitCooldown <= 0 && leadInvuln <= 0) {
-        t.hitCooldown = 1.8;
-        leadInvuln = 1.3;
+      } else if (leadTouch && t.hitCooldown <= 0 && leadInvuln <= 0 && mercy <= 0) {
+        t.hitCooldown = 3.0;
+        leadInvuln = 2.0;
+        mercy = 2.5;
         t.aiState = 'recovery';
-        t.stateTimer = 1.2;
+        t.stateTimer = 1.8;
+        t.angle = Math.atan2(t.y - leadKoi.y, t.x - leadKoi.x);
         const pushAng = Math.atan2(leadKoi.y - t.y, leadKoi.x - t.x);
         leadKoi.x += Math.cos(pushAng) * 32 * worldScale;
         leadKoi.y += Math.sin(pushAng) * 32 * worldScale;
@@ -3222,7 +3233,8 @@
               }
             }
             if (Math.hypot(leadKoi.x - h.x, leadKoi.y - h.y) < h.r && leadInvuln <= 0) {
-              leadInvuln = 1.2;
+              leadInvuln = 2.0;
+              mercy = 2.5;
               comboHits = 0;
               comboMult = 1.0;
               comboTimer = 0;
@@ -3235,6 +3247,7 @@
               triggerShake(6, 0.24);
               hitStop = 0.08;
             } else if (lostCount > 0) {
+              mercy = 2.5;
               addPopup(h.x, h.y - 22 * worldScale, `HERON CAUGHT ${lostCount} KOI!`, '#ff4d67', true);
               KoiAnalytics.track('enemy_hit', { hazard: 'heron', target: 'school', koi_lost: lostCount, school_bucket: bucketSchool(schoolBefore) });
               triggerShake(5, 0.2);
@@ -4120,6 +4133,45 @@
     }
   }
 
+  // Shown to anyone who has not steered 2 s after play starts: an animated
+  // thumb (touch) or cursor (mouse) demonstrating how to steer.
+  function renderSteerHint() {
+    if (state !== 'playing' || hasSteered || runTime < 2 || !leadKoi) return;
+    if (!steerHintShown) {
+      steerHintShown = true;
+      KoiAnalytics.track('ob_steer_hint');
+    }
+    const a = Math.min(1, (runTime - 2) * 2);
+    const t = totalTime * 1.6;
+    ctx.save();
+    ctx.globalAlpha = a;
+    if (inputMode === 'touch') {
+      const bx = Math.min(W * 0.3, 150), by = H - Math.min(H * 0.22, 170);
+      const fx = bx + Math.cos(t) * 40, fy = by + Math.sin(t) * 40;
+      ctx.beginPath(); ctx.arc(bx, by, 48, 0, TAU);
+      ctx.fillStyle = 'rgba(10, 26, 36, 0.45)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(164, 206, 224, 0.55)'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(fx, fy, 20, 0, TAU);
+      ctx.fillStyle = 'rgba(94, 234, 212, 0.75)'; ctx.fill();
+      // fingertip
+      ctx.beginPath(); ctx.ellipse(fx + 6, fy + 18, 11, 15, -0.3, 0, TAU);
+      ctx.fillStyle = 'rgba(255, 238, 220, 0.9)'; ctx.fill();
+      drawCoachLabel(bx, by - 76, 'Drag anywhere to steer', '#5eead4');
+    } else {
+      const r = 60 * worldScale;
+      const cx = leadKoi.x + Math.cos(t) * r, cy = leadKoi.y + Math.sin(t) * r;
+      ctx.translate(cx, cy);
+      ctx.fillStyle = '#f4f9fb'; ctx.strokeStyle = '#07131a'; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(0, 20); ctx.lineTo(5, 15); ctx.lineTo(9, 23);
+      ctx.lineTo(12, 21); ctx.lineTo(8, 14); ctx.lineTo(14, 14); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawCoachLabel(leadKoi.x, leadKoi.y - 70 * worldScale, 'Move your mouse to steer', '#5eead4');
+    }
+    ctx.restore();
+  }
+
   function renderTouchJoystick() {
     if (!joystick.active) return;
     ctx.save();
@@ -4224,6 +4276,7 @@
     }
 
     renderCoach();
+    renderSteerHint();
     renderTouchJoystick();
 
     ctx.restore();

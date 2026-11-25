@@ -1271,7 +1271,7 @@
 (() => {
   'use strict';
 
-  const BUILD = 'pilot-5';
+  const BUILD = 'pilot-6';
 
   // Safari < 16 and older Android WebViews lack roundRect; the pier and labels need it.
   if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
@@ -2704,18 +2704,25 @@
   function spawnTurtle() {
     const edge = Math.floor(Math.random() * 4);
     let x, y, ang;
-    if (edge === 0) { x = 36; y = H * (0.25 + Math.random() * 0.55); ang = 0; }
-    else if (edge === 1) { x = W - 36; y = H * (0.35 + Math.random() * 0.5); ang = Math.PI; }
-    else if (edge === 2) { x = W * (0.2 + Math.random() * 0.5); y = 68; ang = Math.PI * 0.5; }
-    else { x = W * (0.2 + Math.random() * 0.6); y = H - 36; ang = -Math.PI * 0.5; }
+    if (edge === 0) { x = 60; y = H * (0.3 + Math.random() * 0.45); }
+    else if (edge === 1) { x = W - 60; y = H * (0.4 + Math.random() * 0.4); }
+    else if (edge === 2) { x = W * (0.2 + Math.random() * 0.45); y = 110; }
+    else { x = W * (0.2 + Math.random() * 0.6); y = H - 70; }
+    ang = Math.atan2(H * 0.5 - y, W * 0.5 - x);
 
-    if (leadKoi && Math.hypot(x - leadKoi.x, y - leadKoi.y) < 160 * worldScale) return;
+    if (leadKoi && Math.hypot(x - leadKoi.x, y - leadKoi.y) < 150 * worldScale) return;
+    // Surfacing cue so the player notices a new turtle arriving
+    addRipple(x, y, 90, 'rgba(255, 36, 66, 0.7)', 2.4);
+    addRipple(x, y, 55, 'rgba(255, 200, 120, 0.5)', 1.6);
+    addPopup(x, y - 34 * worldScale, 'SNAPPING TURTLE!', '#ff4d67', false);
 
     turtles.push({
       x,
       y,
       angle: ang,
-      r: 23 * worldScale,
+      // Minimum on-screen size so turtles stay readable on small phones
+      r: Math.max(19, 26 * worldScale),
+      wx: W * 0.5, wy: H * 0.5,
       windupTime: isFirstRun() ? 0.95 : 0.75,
       swimPhase: Math.random() * TAU,
       aiState: 'patrol', // 'patrol' | 'windup' | 'lunge' | 'recovery'
@@ -3291,7 +3298,7 @@
     // Pressure then scales with school size, so risk grows with the payout.
     if (save.mode === 'arcade') {
       const first = isFirstRun();
-      const turtleOk = first ? (runTime > 16 || school.length >= 1) : runTime > 5;
+      const turtleOk = first ? (runTime > 10 || school.length >= 1) : runTime > 4;
       const heronOk = first ? (runTime > 24 && school.length >= 2) : (runTime > 9 && school.length >= 1);
       const turtleCap = pondNow.id === 'maple' ? 3 : 2;
       const targetTurtles = school.length >= 1 ? Math.min(turtleCap, 1 + Math.floor(school.length / 5)) : 1;
@@ -3318,6 +3325,11 @@
     // 6. Surface Lily Pad Occlusion Fade (Smoothly fades when koi swim beneath)
     for (const pad of lilies) {
       let covered = Math.hypot(leadKoi.x - pad.x, leadKoi.y - pad.y) < pad.r + 18 * worldScale;
+      if (!covered) {
+        for (const t of turtles) {
+          if (Math.hypot(t.x - pad.x, t.y - pad.y) < pad.r + t.r) { covered = true; break; }
+        }
+      }
       if (!covered) {
         for (let i = 0; i < school.length; i++) {
           if (Math.hypot(school[i].x - pad.x, school[i].y - pad.y) < pad.r + 14 * worldScale) {
@@ -3539,8 +3551,30 @@
       if (t.aiState === 'patrol') {
         t.swimPhase += dt * 4.2;
         t.stateTimer -= dt;
-        t.x += Math.cos(t.angle) * 44 * worldScale * dt;
-        t.y += Math.sin(t.angle) * 44 * worldScale * dt;
+        t.x += Math.cos(t.angle) * 48 * worldScale * dt;
+        t.y += Math.sin(t.angle) * 48 * worldScale * dt;
+
+        // Roam between waypoints in the open water (often stalking the koi)
+        // instead of wandering into the walls.
+        if (Math.hypot(t.wx - t.x, t.wy - t.y) < 40 * worldScale || t.stateTimer <= 0) {
+          if (Math.random() < 0.6) {
+            const a = Math.random() * TAU, d = (170 + Math.random() * 90) * worldScale;
+            t.wx = leadKoi.x + Math.cos(a) * d;
+            t.wy = leadKoi.y + Math.sin(a) * d;
+          } else {
+            t.wx = W * (0.18 + Math.random() * 0.64);
+            t.wy = H * (0.22 + Math.random() * 0.6);
+          }
+          t.wx = Math.max(70, Math.min(W - 70, t.wx));
+          t.wy = Math.max(110, Math.min(H - 70, t.wy));
+          t.stateTimer = 3 + Math.random() * 2;
+        }
+        {
+          let da = Math.atan2(t.wy - t.y, t.wx - t.x) - t.angle;
+          while (da > Math.PI) da -= TAU;
+          while (da < -Math.PI) da += TAU;
+          t.angle += Math.max(-1.6 * dt, Math.min(1.6 * dt, da * 2 * dt));
+        }
 
         // Soft bounce off pond edges & Market Pier
         if (t.x < 34) { t.x = 34; t.angle = 0 + (Math.random() - 0.5) * 0.6; }
@@ -3564,9 +3598,6 @@
           t.aiState = 'windup';
           t.stateTimer = t.windupTime || 0.75;
           t.angle = Math.atan2(nearestTarget.y - t.y, nearestTarget.x - t.x);
-        } else if (t.stateTimer <= 0) {
-          t.angle += (Math.random() - 0.5) * 1.4;
-          t.stateTimer = 2.0 + Math.random() * 2.2;
         }
       } else if (t.aiState === 'windup') {
         t.swimPhase += dt * 8.5;
@@ -4302,7 +4333,7 @@
         ctx.save();
         ctx.translate(fl.x, fl.y);
         ctx.rotate(fl.side * (0.65 + strokeAng));
-        ctx.fillStyle = '#16121d';
+        ctx.fillStyle = '#4a4a24';
         ctx.strokeStyle = '#382230';
         ctx.lineWidth = 1.2;
         ctx.beginPath();
@@ -4326,7 +4357,7 @@
         ctx.closePath();
         ctx.fill();
       }
-      ctx.fillStyle = '#14101a';
+      ctx.fillStyle = '#56562a';
       ctx.strokeStyle = '#ff2442';
       ctx.lineWidth = 1.3;
       ctx.beginPath();
@@ -4344,7 +4375,11 @@
 
       // Serrated Obsidian Carapace with Glowing Crimson Scute Seams
       const spikes = 12;
-      ctx.fillStyle = '#100c14';
+      const shellG = ctx.createRadialGradient(-r * 0.2, -r * 0.25, r * 0.1, 0, 0, r * 1.1);
+      shellG.addColorStop(0, '#6b5a2e');
+      shellG.addColorStop(0.6, '#3f3418');
+      shellG.addColorStop(1, '#241c0c');
+      ctx.fillStyle = shellG;
       ctx.strokeStyle = '#ff2442';
       ctx.lineWidth = 1.6 * worldScale;
       ctx.beginPath();

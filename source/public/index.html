@@ -1391,7 +1391,7 @@
 (() => {
   'use strict';
 
-  const BUILD = 'pilot-9';
+  const BUILD = 'pilot-10';
 
   // Safari < 16 and older Android WebViews lack roundRect; the pier and labels need it.
   if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
@@ -2461,6 +2461,9 @@
   let idleTime = 0;         // seconds since the player last steered or dashed
   let hasSteered = false;   // selling only counts once a real player has steered
   let mercy = 0;            // seconds of grace after any hit: no new bites, no new herons
+  let turtleScareCooldown = 0; // after a turtle is scared off, the pond stays clear for a while
+  let bumpHintShown = false;
+  const bossRocks = [];
   let paused = false;
   let fxLevel = save.fxPinned && save.fxLevel === 'low' ? 'low' : 'high'; // drops to low automatically on slow devices
   let steerHintShown = false;
@@ -2961,6 +2964,8 @@
     idleTime = 0;
     boss = null;
     snakes.length = 0;
+    bossRocks.length = 0;
+    turtleScareCooldown = 0;
     mercy = 0;
     coach.step = 'eat';
     coach.hazardShown = false;
@@ -3377,6 +3382,17 @@
     for (const t of turtles) { t.aiState = 'recovery'; t.stateTimer = 22; }
     snakes.length = 0;
     salesSinceBoss = 0;
+    // Boulders surface during the hunt. Lure the charge into one to stun the croc.
+    bossRocks.length = 0;
+    for (let tries = 0; tries < 60 && bossRocks.length < 3; tries++) {
+      const rx = W * (0.18 + Math.random() * 0.64), ry = H * (0.24 + Math.random() * 0.6);
+      const rr = (26 + Math.random() * 8) * worldScale;
+      if (Math.hypot(rx - pier.cx, ry - pier.cy) < pier.radius + 90 * worldScale) continue;
+      if (Math.hypot(rx - leadKoi.x, ry - leadKoi.y) < 90 * worldScale) continue;
+      if (Math.hypot(rx - o.x, ry - o.y) < 160 * worldScale) continue;
+      if (bossRocks.some(q => Math.hypot(q.x - rx, q.y - ry) < 170 * worldScale)) continue;
+      bossRocks.push({ x: rx, y: ry, r: rr, rise: 0, seed: Math.random() * 10 });
+    }
     addRipple(o.x, o.y, 180, 'rgba(255, 36, 66, 0.8)', 3);
     Sound.drum();
     triggerShake(4, 0.4);
@@ -3386,7 +3402,19 @@
   function endBoss(result) {
     if (!boss || boss.phase === 'leave') return;
     const b = boss;
-    if (result === 'survived') {
+    if (result === 'outsmarted') {
+      const jackpot = Math.round((200 + 80 * school.length) * (b.lost === 0 ? 1.25 : 0.6));
+      save.yen += jackpot;
+      if (b.lost === 0) save.rareTicket = (save.rareTicket || 0) + 1;
+      persist(true);
+      addParticles(leadKoi.x, leadKoi.y, 44, '#ffd269', 170, 3.4);
+      petalBurst(leadKoi.x, leadKoi.y, hiFx() ? 50 : 20);
+      Sound.kotoArpeggio(8, 3);
+      triggerYenPop();
+      showToast(`You outsmarted the crocodile! +\u00A5${jackpot}`, b.lost === 0 ? 'It crashed into a rock and fled \u2022 Your next koi will be rare' : 'It crashed into a rock and fled.');
+      KoiAnalytics.track('boss_outsmarted', { koi_lost: b.lost, school_bucket: bucketSchool(school.length) });
+      KoiAnalytics.track('enemy_repelled', { enemy: 'crocodile', method: 'rock' });
+    } else if (result === 'survived') {
       if (b.lost === 0 && school.length > 0) {
         const jackpot = 200 + 80 * school.length;
         save.yen += jackpot;
@@ -3407,6 +3435,7 @@
     }
     b.phase = 'leave';
     b.t = 1.6;
+    for (const q of bossRocks) q.sinking = true;
     bossCooldown = 90;
     for (const t of turtles) { t.aiState = 'patrol'; t.stateTimer = 2; }
   }
@@ -3484,9 +3513,25 @@
       } else if (b.sub === 'charge') {
         b.x += Math.cos(b.angle) * 520 * ws * dt;
         b.y += Math.sin(b.angle) * 520 * ws * dt;
-        if (inPierSafeZone(b.x, b.y)) { b.sub = 'dive'; b.subT = 0.9; }
+        const head = bossHead(b);
+        const rock = bossRocks.find(q => Math.hypot(head.x - q.x, head.y - q.y) < q.r + 14 * ws);
+        if (rock) {
+          b.sub = 'stunned';
+          b.subT = 1.6;
+          b.x -= Math.cos(b.angle) * 24 * ws;
+          b.y -= Math.sin(b.angle) * 24 * ws;
+          Sound.drum();
+          triggerShake(7, 0.35);
+          hitStop = 0.12;
+          addParticles(rock.x, rock.y, 30, '#d7d2c4', 150, 3.2);
+          splash(rock.x, rock.y, hiFx() ? 20 : 8, 'rgba(220, 244, 255, 0.95)', 1.4);
+          addPopup(rock.x, rock.y - rock.r - 18 * ws, 'THUD! The croc is stunned!', '#ffd269', true);
+        } else if (inPierSafeZone(b.x, b.y)) { b.sub = 'dive'; b.subT = 0.9; }
         else bossBite(b);
         if (b.subT <= 0 || b.x < -40 || b.x > W + 40 || b.y < -40 || b.y > H + 40) { b.sub = 'dive'; b.subT = 0.9; }
+      } else if (b.sub === 'stunned') {
+        b.wig += dt * 2;
+        if (b.subT <= 0) endBoss('outsmarted');
       } else if (b.sub === 'dive') {
         b.alpha = Math.max(0.12, b.alpha - dt * 1.6);
         b.x += Math.cos(b.angle) * 60 * ws * dt;
@@ -3529,6 +3574,46 @@
       const sway = Math.sin(b.wig - i * 0.6) * (i / b.nodes.length) * 0.35;
       c.x = p.x + (dx - dy * sway) * b.seg;
       c.y = p.y + (dy + dx * sway) * b.seg;
+    }
+  }
+
+  function updateBossRocks(dt) {
+    for (let i = bossRocks.length - 1; i >= 0; i--) {
+      const q = bossRocks[i];
+      if (q.sinking) { q.rise -= dt * 1.2; if (q.rise <= 0) bossRocks.splice(i, 1); continue; }
+      q.rise = Math.min(1, q.rise + dt * 1.5);
+      // Koi slide around rocks instead of passing through them
+      for (const k of [leadKoi, ...school]) {
+        const dx = k.x - q.x, dy = k.y - q.y, d = Math.hypot(dx, dy) || 1;
+        const minD = q.r + 10 * worldScale;
+        if (d < minD) { k.x = q.x + (dx / d) * minD; k.y = q.y + (dy / d) * minD; }
+      }
+    }
+  }
+
+  function renderBossRocks() {
+    for (const q of bossRocks) {
+      const r = q.r * (0.4 + 0.6 * Math.max(0, q.rise));
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, Math.min(1, q.rise));
+      ctx.strokeStyle = 'rgba(215, 242, 255, 0.35)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.ellipse(q.x, q.y + 3, r * 1.25, r * 1.05, 0, 0, TAU); ctx.stroke();
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.beginPath(); ctx.ellipse(q.x + 6, q.y + 9, r, r * 0.82, 0, 0, TAU); ctx.fill();
+      const g = ctx.createRadialGradient(q.x - r * 0.35, q.y - r * 0.4, r * 0.1, q.x, q.y, r);
+      g.addColorStop(0, '#8d8a80'); g.addColorStop(0.7, '#5a584f'); g.addColorStop(1, '#3a3933');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      for (let k = 0; k < 9; k++) {
+        const a = (k / 9) * TAU, rr = r * (0.86 + 0.14 * Math.sin(q.seed + k * 2.3));
+        const px = q.x + Math.cos(a) * rr, py = q.y + Math.sin(a) * rr * 0.85;
+        if (k === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(90, 140, 70, 0.7)';
+      ctx.beginPath(); ctx.ellipse(q.x - r * 0.2, q.y - r * 0.45, r * 0.45, r * 0.18, -0.3, 0, TAU); ctx.fill();
+      ctx.restore();
     }
   }
 
@@ -3623,11 +3708,21 @@
       ctx.beginPath(); ctx.ellipse(5 * ws, side * 9 * ws, 1.2 * ws, 3.2 * ws, 0, 0, TAU); ctx.fill();
     }
     ctx.restore();
+    if (b.sub === 'stunned') {
+      for (let k = 0; k < 4; k++) {
+        const a = totalTime * 5 + k * (TAU / 4);
+        const sx = b.x + Math.cos(a) * 26 * ws, sy = b.y - 24 * ws + Math.sin(a) * 9 * ws;
+        ctx.fillStyle = '#ffd84a';
+        ctx.font = `${Math.round(16 * ws)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.fillText('\u2605', sx, sy);
+      }
+    }
     ctx.globalAlpha = 1;
 
     // Banner + timer
     if (b.phase !== 'leave') {
-      const text = b.phase === 'intro' ? '🐊 CROCODILE! Get ready…' : `🐊 Survive ${Math.ceil(Math.max(0, b.t))}s or sell at the pier`;
+      const text = b.phase === 'intro' ? '🐊 CROCODILE! Lure it into a rock…' : `🐊 ${Math.ceil(Math.max(0, b.t))}s \u2022 Dodge, trick it into a rock, or sell`;
       ctx.font = `800 ${Math.max(13, Math.round(15 * ws))}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
       const tw = ctx.measureText(text).width;
       const pw = tw + 28, ph = 34;
@@ -3689,6 +3784,33 @@
       }
       sn.s += sn.speed * dt;
       if (sn.s - sn.segs * sn.spacing > sn.total) { snakes.splice(i, 1); continue; }
+      if (sn.fleeing) {
+        sn.fadeA = (sn.fadeA === undefined ? 1 : sn.fadeA) - dt * 2;
+        sn.s += sn.speed * 2 * dt;
+        if (sn.fadeA <= 0) snakes.splice(i, 1);
+        continue;
+      }
+      if (powerActive('frenzy')) {
+        const hp = snakePos(sn, sn.s);
+        let near = false;
+        for (let k = 0; k <= sn.segs && !near; k++) {
+          const sk = sn.s - k * sn.spacing;
+          if (sk < 0) continue;
+          const p = snakePos(sn, sk);
+          if (Math.hypot(leadKoi.x - p.x, leadKoi.y - p.y) < 22 * worldScale) near = true;
+        }
+        if (near) {
+          sn.fleeing = true;
+          const bonus = 20 + 5 * school.length;
+          save.yen += bonus;
+          persist();
+          addPopup(hp.x, hp.y - 24 * worldScale, `SNAKE FLED! +\u00A5${bonus}`, '#5eead4', true);
+          addParticles(hp.x, hp.y, 18, '#ffd269', 120, 3);
+          Sound.kotoArpeggio(4, 4);
+          KoiAnalytics.track('enemy_repelled', { enemy: 'snake', method: 'frenzy' });
+          continue;
+        }
+      }
       if (mercy > 0 || powerActive('shield')) continue;
       const ws = worldScale;
       let hit = false;
@@ -3719,6 +3841,8 @@
   function renderSnakes() {
     const ws = worldScale;
     for (const sn of snakes) {
+      ctx.save();
+      if (sn.fleeing) ctx.globalAlpha = Math.max(0, sn.fadeA === undefined ? 1 : sn.fadeA);
       // Route preview: a fading red dotted line shows the path ~1.5 s ahead
       const showPath = sn.phase === 'preview' || sn.s < sn.total * 0.35;
       if (showPath) {
@@ -3729,7 +3853,7 @@
           ctx.beginPath(); ctx.arc(p.x, p.y, 2.4 * ws, 0, TAU); ctx.fill();
         }
       }
-      if (sn.phase === 'preview') continue;
+      if (sn.phase === 'preview') { ctx.restore(); continue; }
       // body: tail to head, tapering
       for (let k = sn.segs; k >= 0; k--) {
         const sk = sn.s - k * sn.spacing;
@@ -3757,6 +3881,7 @@
       ctx.beginPath(); ctx.ellipse(3 * ws, 0, 11 * ws, 8 * ws, 0, 0, TAU); ctx.fill(); ctx.stroke();
       ctx.fillStyle = '#ffd84a';
       ctx.beginPath(); ctx.arc(6 * ws, -4 * ws, 2 * ws, 0, TAU); ctx.arc(6 * ws, 4 * ws, 2 * ws, 0, TAU); ctx.fill();
+      ctx.restore();
       ctx.restore();
     }
   }
@@ -4193,7 +4318,7 @@
       const heronOk = first ? (runTime > 24 && school.length >= 2) : (runTime > 9 && school.length >= 1);
       const turtleCap = pondNow.id === 'maple' ? 3 : 2;
       const targetTurtles = school.length >= 1 ? Math.min(turtleCap, 1 + Math.floor(school.length / 5)) : 1;
-      if (!boss && turtleOk && turtles.length < targetTurtles && Math.random() < dt * (turtles.length === 0 ? 1.2 : 0.35)) {
+      if (!boss && turtleOk && turtleScareCooldown <= 0 && turtles.length < targetTurtles && Math.random() < dt * (turtles.length === 0 ? 1.2 : 0.35)) {
         spawnTurtle();
       }
 
@@ -4225,12 +4350,14 @@
       herons.length = 0;
       snakes.length = 0;
       boss = null;
+      bossRocks.length = 0;
     }
 
     updateTurtles(dt);
     updateHerons(dt);
     updateSnakes(dt);
     updateBoss(dt);
+    updateBossRocks(dt);
     updateWeather(dt);
     updateFx(dt);
 
@@ -4451,10 +4578,64 @@
     ctx.restore();
   }
 
+  // "Scare, don't kill": three ways to drive a turtle off the pond.
+  //  1. Dash into it while it is recovering after a lunge (skill)
+  //  2. Dash into it with a school of 6+ koi (strength in numbers), any time but mid-lunge
+  //  3. Touch it at all during a Frenzy power-up
+  function scareMethod(t) {
+    if (powerActive('frenzy')) return 'frenzy';
+    if (!isDashing) return null;
+    if (t.aiState === 'recovery') return 'dash_bump';
+    if (school.length >= 6 && t.aiState !== 'lunge') return 'school_swarm';
+    return null;
+  }
+
+  function scareTurtle(t, method) {
+    t.aiState = 'flee';
+    t.fleeAng = Math.atan2(t.y - leadKoi.y, t.x - leadKoi.x);
+    t.angle = t.fleeAng;
+    t.spin = 0;
+    t.hitCooldown = 99;
+    const bonus = 15 + 5 * school.length;
+    save.yen += bonus;
+    persist();
+    turtleScareCooldown = 8;
+    mercy = Math.max(mercy, 0.8);
+    const label = method === 'frenzy' ? 'TURNED THE TABLES!' : method === 'school_swarm' ? 'SCHOOL SCARED IT OFF!' : 'BONK! SCARED OFF!';
+    addPopup(t.x, t.y - 30 * worldScale, `${label} +\u00A5${bonus}`, '#5eead4', true);
+    addParticles(t.x, t.y, 22, '#ffd269', 130, 3);
+    addRipple(t.x, t.y, 110, 'rgba(94, 234, 212, 0.8)', 2.6);
+    splash(t.x, t.y, hiFx() ? 14 : 5, 'rgba(220, 244, 255, 0.9)', 1.2);
+    Sound.kotoArpeggio(4, 4);
+    triggerShake(2.5, 0.12);
+    hitStop = 0.06;
+    triggerYenPop();
+    KoiAnalytics.track('enemy_repelled', { enemy: 'turtle', method });
+    bumpHintShown = true;
+  }
+
   function updateTurtles(dt) {
+    if (turtleScareCooldown > 0) turtleScareCooldown = Math.max(0, turtleScareCooldown - dt);
     for (let i = turtles.length - 1; i >= 0; i--) {
       const t = turtles[i];
       if (t.hitCooldown > 0) t.hitCooldown = Math.max(0, t.hitCooldown - dt);
+
+      if (t.aiState === 'flee') {
+        // Panicked turtle spins away and dives off-screen
+        t.spin += dt * 9;
+        t.swimPhase += dt * 16;
+        t.x += Math.cos(t.fleeAng) * 300 * worldScale * dt;
+        t.y += Math.sin(t.fleeAng) * 300 * worldScale * dt;
+        t.fadeA = Math.max(0, (t.fadeA === undefined ? 1 : t.fadeA) - dt * 0.7);
+        if (t.x < -60 || t.x > W + 60 || t.y < -60 || t.y > H + 60 || t.fadeA <= 0) turtles.splice(i, 1);
+        continue;
+      }
+
+      const touching = Math.hypot(leadKoi.x - t.x, leadKoi.y - t.y) < t.r + 18 * worldScale;
+      if (touching) {
+        const m = scareMethod(t);
+        if (m) { scareTurtle(t, m); continue; }
+      }
 
       t.wakeTimer -= dt;
       if (t.wakeTimer <= 0) {
@@ -4538,11 +4719,14 @@
       } else if (t.aiState === 'recovery') {
         t.swimPhase += dt * 2.2;
         t.stateTimer -= dt;
+        t.vulnerable = true;
         if (t.stateTimer <= 0) {
           t.aiState = 'patrol';
           t.stateTimer = 2.2;
         }
       }
+
+      if (t.aiState !== 'recovery') t.vulnerable = false;
 
       // Bite check against school koi during lunge
       if (t.hitCooldown <= 0 && t.aiState === 'lunge' && mercy <= 0) {
@@ -5243,8 +5427,21 @@
       ctx.stroke();
       ctx.setLineDash([]);
 
+      if (t.vulnerable && !boss) {
+        // Dazed after a lunge: soft teal ring + "DASH!" so the player learns the counter
+        const vp = 0.5 + Math.sin(totalTime * 10) * 0.5;
+        ctx.strokeStyle = `rgba(94, 234, 212, ${0.45 + vp * 0.4})`;
+        ctx.lineWidth = 2.4 * worldScale;
+        ctx.setLineDash([]);
+        ctx.beginPath(); ctx.arc(t.x, t.y, r + 15 * worldScale, 0, TAU); ctx.stroke();
+        if (!bumpHintShown || isFirstRun() || (save.totalHarvested || 0) < 20) {
+          drawCoachLabel(t.x, t.y - r - 34 * worldScale, inputMode === 'touch' ? 'Dazed! Hold \u26A1 and ram it' : 'Dazed! Dash into it', '#5eead4');
+        }
+      }
+      if (t.aiState === 'flee') ctx.globalAlpha = t.fadeA === undefined ? 1 : t.fadeA;
+
       ctx.translate(t.x, t.y);
-      ctx.rotate(t.angle);
+      ctx.rotate(t.angle + (t.aiState === 'flee' ? t.spin : 0));
 
       // Drop Shadow
       ctx.fillStyle = 'rgba(2, 6, 10, 0.58)';
@@ -5681,6 +5878,7 @@
     renderSurfaceLilies();
     renderWeather();
     renderNight();
+    renderBossRocks();
     renderBoss();
     renderOverFx();
 
@@ -6824,6 +7022,9 @@
       get daily() { return save.daily; },
       harvest: () => executeHarvest(),
       startBoss: () => startBoss(),
+      bossRocks,
+      frenzy: () => activatePower('frenzy', leadKoi.x, leadKoi.y),
+      setDash: (v) => { touchDashHeld = v; },
       pause: () => pauseGame('manual'),
       get paused() { return paused; },
       get fx() { return { drops: drops.length, bubbles: bubbles.length, petals: petals.length, level: fxLevel }; },

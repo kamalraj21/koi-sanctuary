@@ -2065,6 +2065,7 @@
     let r = '';
     try { r = (document.referrer || '').toLowerCase(); } catch (_) {}
     if (!r) return 'direct';
+    if (r.includes('itch.io') || r.includes('itch.zone')) return 'itch';
     if (r.includes('whatsapp')) return 'whatsapp';
     if (r.includes('linkedin') || r.includes('lnkd.in')) return 'linkedin';
     if (r.includes('discord')) return 'discord';
@@ -2074,6 +2075,15 @@
     return 'other';
   }
   const sessionRef = refBucket();
+  // Which copy of the game this is: GitHub Pages, itch.io, or anything else.
+  const HOST = (() => {
+    try {
+      const h = (location.hostname || '').toLowerCase();
+      if (h.includes('itch.io') || h.includes('itch.zone')) return 'itch';
+      if (h.includes('github.io')) return 'web';
+      return h ? 'other' : 'local';
+    } catch (_) { return 'other'; }
+  })();
 
   // Low-cardinality context added to every event.
   KoiAnalytics.setContext(() => ({
@@ -2082,7 +2092,8 @@
     returning: (save.sessions || 1) > 1,
     day_bucket: dayBucket(),
     session_bucket: sessionBucket(),
-    build: BUILD
+    build: BUILD,
+    host: HOST
   }));
 
   function trackOnboarding(step) {

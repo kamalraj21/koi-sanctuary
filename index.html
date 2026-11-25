@@ -831,7 +831,7 @@
   /* Shop Tabs & Cards */
   .tab-bar {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 6px;
     background: rgba(6, 15, 21, 0.7);
     padding: 4px;
@@ -1102,6 +1102,7 @@
 
     <!-- Top-Right 44x44 Touch Targets -->
     <div class="hud-right-actions">
+      <button id="btn-sound" class="icon-btn" type="button" aria-label="Sound on" title="Sound on / off"></button>
       <button id="btn-open-shop" class="icon-btn" type="button" aria-label="Farm Shop" title="Farm Shop">
         <span id="shop-notif" class="notif-dot"></span>
         <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1200,7 +1201,8 @@
     <div class="sheet-body">
       <div class="tab-bar">
         <button id="tab-varieties" class="tab-btn active" type="button">Koi Varieties</button>
-        <button id="tab-upgrades" class="tab-btn" type="button">Pond Upgrades</button>
+        <button id="tab-upgrades" class="tab-btn" type="button">Upgrades</button>
+        <button id="tab-ponds" class="tab-btn" type="button">Ponds</button>
       </div>
       <div id="shop-grid" class="shop-grid"></div>
     </div>
@@ -1269,7 +1271,7 @@
 (() => {
   'use strict';
 
-  const BUILD = 'pilot-4';
+  const BUILD = 'pilot-5';
 
   // Safari < 16 and older Android WebViews lack roundRect; the pier and labels need it.
   if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
@@ -1624,6 +1626,63 @@
   // Market orders are generated from the breeds the player can actually field,
   // so an order is never impossible. Each completed order raises the next one's
   // size and bonus, which pushes players to risk a bigger school.
+  // Pond environments unlock with lifetime koi sold. Harder ponds pay more.
+  const PONDS = {
+    garden: {
+      id: 'garden', name: 'Garden Pond', unlockAt: 0, mult: 1.0,
+      blurb: 'The calm home pond. Learn the ropes.',
+      floor: ['#0b2029', '#091922', '#07131a'],
+      stones: ['rgba(5, 13, 18, 0.55)', 'rgba(13, 33, 43, 0.42)'],
+      caustic: 'rgba(72, 168, 196, 0.055)',
+      lily: ['#1d5646', '#154236', '#266d58'],
+      swatch: 'linear-gradient(135deg, #0b2029, #266d58)'
+    },
+    bamboo: {
+      id: 'bamboo', name: 'Bamboo Stream', unlockAt: 15, mult: 1.15,
+      blurb: 'A gentle current pushes you sideways. 1.15\u00D7 sale value.',
+      floor: ['#0f2a22', '#0b2019', '#061410'],
+      stones: ['rgba(4, 14, 10, 0.55)', 'rgba(20, 48, 36, 0.4)'],
+      caustic: 'rgba(120, 200, 150, 0.06)',
+      lily: ['#2a6a3e', '#1d5030', '#3c8a52'],
+      current: { x: 34, y: 6 },
+      weather: 'bambooLeaf',
+      swatch: 'linear-gradient(135deg, #0f2a22, #6bbf7a)'
+    },
+    moon: {
+      id: 'moon', name: 'Moonlit Temple', unlockAt: 40, mult: 1.3,
+      blurb: 'Night water. You only see near lanterns. More herons. 1.3\u00D7.',
+      floor: ['#0d1630', '#0a1024', '#050814'],
+      stones: ['rgba(3, 5, 14, 0.6)', 'rgba(20, 28, 58, 0.45)'],
+      caustic: 'rgba(150, 170, 255, 0.05)',
+      lily: ['#1b3f46', '#132f36', '#22535c'],
+      dark: true,
+      weather: 'firefly',
+      swatch: 'radial-gradient(circle at 70% 30%, #f6e7b0 12%, #0d1630 14%)'
+    },
+    maple: {
+      id: 'maple', name: 'Autumn Maple', unlockAt: 80, mult: 1.45,
+      blurb: 'Falling leaves to snack on. More snapping turtles. 1.45\u00D7.',
+      floor: ['#2a1a12', '#1e130d', '#120a06'],
+      stones: ['rgba(14, 7, 3, 0.55)', 'rgba(60, 34, 18, 0.4)'],
+      caustic: 'rgba(255, 170, 90, 0.05)',
+      lily: ['#5b5a26', '#45441c', '#77722e'],
+      weather: 'mapleLeaf',
+      swatch: 'linear-gradient(135deg, #2a1a12, #e0662a)'
+    },
+    winter: {
+      id: 'winter', name: 'Winter Spring', unlockAt: 150, mult: 1.6,
+      blurb: 'Slippery ice patches. Best prices in the land. 1.6\u00D7.',
+      floor: ['#1d3442', '#142834', '#0c1a24'],
+      stones: ['rgba(8, 18, 26, 0.5)', 'rgba(60, 90, 110, 0.35)'],
+      caustic: 'rgba(220, 240, 255, 0.07)',
+      lily: ['#3d6a70', '#2e555b', '#5a8c92'],
+      ice: true,
+      weather: 'snow',
+      swatch: 'linear-gradient(135deg, #1d3442, #e8f6ff)'
+    }
+  };
+  const POND_KEYS = ['garden', 'bamboo', 'moon', 'maple', 'winter'];
+
   const ORDER_TITLES = [
     'Tea House Order', 'Lantern Festival', 'Scholar Pond', 'Temple Garden',
     'Moon Viewing', 'Merchant Guild', 'Imperial Tribute', 'Grand Sanctuary'
@@ -1648,7 +1707,9 @@
     pid: Math.random().toString(36).slice(2, 10),
     firstSeen: Date.now(),
     sessions: 0,
-    obSteps: {}
+    obSteps: {},
+    pond: 'garden',
+    pondsSeen: ['garden']
   });
 
   function loadSave() {
@@ -1662,6 +1723,7 @@
         ...p,
         upgrades: { ...def.upgrades, ...(p.upgrades || {}) },
         obSteps: { ...(p.obSteps || {}) },
+        pondsSeen: Array.isArray(p.pondsSeen) && p.pondsSeen.length ? p.pondsSeen : ['garden'],
         unlocked: Array.isArray(p.unlocked) && p.unlocked.length ? p.unlocked : ['kohaku']
       };
     } catch (_) {
@@ -1706,14 +1768,15 @@
       if (!save.soundOn) return null;
       try {
         if (!actx) {
-          // iOS 17+: 'ambient' respects the silent switch and does not stop the player's music.
-          try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch (_) {}
+          // iOS 17+: 'playback' plays even when the iPad/iPhone is in silent mode.
+          // Players can still mute from the speaker button or Settings.
+          try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (_) {}
           const AC = window.AudioContext || window.webkitAudioContext;
           if (AC) {
             actx = new AC();
             const comp = actx.createDynamicsCompressor();
             master = actx.createGain();
-            master.gain.value = 0.85;
+            master.gain.value = 1.0;
             master.connect(comp);
             comp.connect(actx.destination);
             // A silent one-sample buffer started inside the gesture unlocks older iOS Safari.
@@ -1744,7 +1807,7 @@
         osc.frequency.setValueAtTime(base * 0.72, t);
         osc.frequency.exponentialRampToValueAtTime(base * 1.5, t + 0.085);
         gain.gain.setValueAtTime(0.001, t);
-        gain.gain.linearRampToValueAtTime(special ? 0.14 : 0.10, t + 0.012);
+        gain.gain.linearRampToValueAtTime(special ? 0.22 : 0.16, t + 0.012);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
         osc.connect(gain);
         gain.connect(master || c.destination);
@@ -1771,7 +1834,7 @@
         filt.frequency.setValueAtTime(620, t);
         filt.frequency.exponentialRampToValueAtTime(1180, t + 0.15);
         const gain = c.createGain();
-        gain.gain.setValueAtTime(0.09, t);
+        gain.gain.setValueAtTime(0.13, t);
         gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
         src.connect(filt);
         filt.connect(gain);
@@ -1793,7 +1856,7 @@
           osc.type = 'triangle';
           osc.frequency.setValueAtTime(freq, t);
           gain.gain.setValueAtTime(0.001, t);
-          gain.gain.linearRampToValueAtTime(0.11, t + 0.012);
+          gain.gain.linearRampToValueAtTime(0.16, t + 0.012);
           gain.gain.exponentialRampToValueAtTime(0.0008, t + 0.48);
           osc.connect(gain);
           gain.connect(master || c.destination);
@@ -1848,15 +1911,112 @@
       } catch (_) {}
     }
 
+    // Ambient bed: soft looping water noise plus slow koto notes in the
+    // current pond's key, so the pond is never completely silent.
+    let amb = null;
+    let moodShift = 0;
+    function setMood(i) { moodShift = i || 0; }
+
+    function pluck(freq, vol, len) {
+      const c = actx;
+      if (!c || !master) return;
+      try {
+        const t = c.currentTime;
+        const osc = c.createOscillator();
+        const g = c.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, t);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(vol, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+        osc.connect(g);
+        g.connect(master);
+        osc.start(t);
+        osc.stop(t + len + 0.05);
+      } catch (_) {}
+    }
+
+    function scheduleAmbientNote() {
+      if (!amb) return;
+      amb.timer = setTimeout(() => {
+        if (!amb || !actx || actx.state !== 'running') { scheduleAmbientNote(); return; }
+        const idx = Math.floor(Math.random() * 6) + moodShift;
+        const base = SCALE[idx % SCALE.length] * (idx >= SCALE.length ? 2 : 1) * 0.5;
+        pluck(base, 0.05, 2.2);
+        if (Math.random() < 0.35) setTimeout(() => pluck(base * 1.5, 0.035, 1.8), 260);
+        scheduleAmbientNote();
+      }, 2600 + Math.random() * 4200);
+    }
+
+    function startAmbient() {
+      const c = unlock();
+      if (!c || amb || !save.soundOn) return;
+      try {
+        const len = Math.floor(c.sampleRate * 4);
+        const buf = c.createBuffer(1, len, c.sampleRate);
+        const d = buf.getChannelData(0);
+        let last = 0;
+        for (let i = 0; i < len; i++) {
+          const white = Math.random() * 2 - 1;
+          last = (last + 0.02 * white) / 1.02;
+          d[i] = last * 3.2;
+        }
+        // Crossfade the loop seam
+        for (let i = 0; i < 2000; i++) {
+          const k = i / 2000;
+          d[i] = d[i] * k + d[len - 2000 + i] * (1 - k);
+        }
+        const src = c.createBufferSource();
+        src.buffer = buf;
+        src.loop = true;
+        const lp = c.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.value = 480;
+        const g = c.createGain();
+        g.gain.setValueAtTime(0.0001, c.currentTime);
+        g.gain.linearRampToValueAtTime(0.09, c.currentTime + 2.5);
+        src.connect(lp);
+        lp.connect(g);
+        g.connect(master || c.destination);
+        src.start();
+        amb = { src, g, timer: null };
+        scheduleAmbientNote();
+      } catch (_) {}
+    }
+
+    function stopAmbient() {
+      if (!amb) return;
+      const a = amb;
+      amb = null;
+      clearTimeout(a.timer);
+      try {
+        const t = actx.currentTime;
+        a.g.gain.cancelScheduledValues(t);
+        a.g.gain.setValueAtTime(a.g.gain.value, t);
+        a.g.gain.linearRampToValueAtTime(0.0001, t + 0.4);
+        a.src.stop(t + 0.5);
+      } catch (_) {}
+    }
+
+    function setEnabled(on) {
+      if (on) {
+        unlock();
+        startAmbient();
+      } else {
+        stopAmbient();
+      }
+    }
+
     function suspendIfHidden() {
       try {
         if (!actx) return;
         if (document.visibilityState === 'hidden') actx.suspend().catch(() => {});
+        else if (save.soundOn && !amb && state === 'playing') startAmbient();
         else if (save.soundOn) actx.resume().catch(() => {});
       } catch (_) {}
     }
 
-    return { unlock, plop, dash, kotoArpeggio, turtleSnap, heronStrike, suspendIfHidden };
+    return { unlock, plop, dash, kotoArpeggio, turtleSnap, heronStrike, suspendIfHidden, startAmbient, stopAmbient, setEnabled, setMood };
   })();
 
   /* =========================================================================
@@ -1901,9 +2061,10 @@
     const cy = H * 0.52;
     const maxR = Math.max(200, Math.hypot(W, H) * 0.65);
     const grad = floorCtx.createRadialGradient(cx, cy, 20, cx, cy, maxR);
-    grad.addColorStop(0, '#0b2029');
-    grad.addColorStop(0.55, '#091922');
-    grad.addColorStop(1, '#07131a');
+    const pond = getPond();
+    grad.addColorStop(0, pond.floor[0]);
+    grad.addColorStop(0.55, pond.floor[1]);
+    grad.addColorStop(1, pond.floor[2]);
     floorCtx.fillStyle = grad;
     floorCtx.fillRect(0, 0, W, H);
 
@@ -1921,7 +2082,7 @@
       floorCtx.save();
       floorCtx.translate(sx, sy);
       floorCtx.rotate(rot);
-      floorCtx.fillStyle = i % 2 === 0 ? 'rgba(5, 13, 18, 0.55)' : 'rgba(13, 33, 43, 0.42)';
+      floorCtx.fillStyle = pond.stones[i % 2];
       floorCtx.beginPath();
       floorCtx.ellipse(0, 0, rx, ry, 0, 0, TAU);
       floorCtx.fill();
@@ -1931,12 +2092,125 @@
       floorCtx.restore();
     }
 
+    drawPondDecor(pond);
+
     // Subtle Sumi-e pond bank vignette along edges
     floorCtx.strokeStyle = 'rgba(16, 40, 52, 0.55)';
     floorCtx.lineWidth = 10 * worldScale;
     floorCtx.strokeRect(0, 0, W, H);
 
     floorCtx.restore();
+  }
+
+  // Static, per-pond floor art baked into the cached floor layer.
+  let iceZones = [];
+  function drawPondDecor(pond) {
+    const fc = floorCtx;
+    iceZones = [];
+    if (pond.id === 'bamboo') {
+      // Diagonal bamboo shadows falling across the water
+      for (let i = 0; i < 7; i++) {
+        const x0 = (i / 7) * W * 1.3 - W * 0.15;
+        fc.save();
+        fc.translate(x0, 0);
+        fc.rotate(0.18);
+        fc.fillStyle = 'rgba(2, 10, 6, 0.35)';
+        fc.fillRect(0, -40, 10 * worldScale + (i % 3) * 4, H * 1.3);
+        fc.fillStyle = 'rgba(2, 10, 6, 0.45)';
+        for (let k = 0; k < 6; k++) fc.fillRect(-2, k * H * 0.22, 14 * worldScale + (i % 3) * 4, 3);
+        // leaves
+        fc.fillStyle = 'rgba(3, 14, 8, 0.4)';
+        for (let k = 0; k < 4; k++) {
+          fc.beginPath();
+          fc.ellipse(18 * worldScale, k * H * 0.3 + 40, 22 * worldScale, 5 * worldScale, 0.6, 0, TAU);
+          fc.fill();
+        }
+        fc.restore();
+      }
+    } else if (pond.id === 'moon') {
+      // Moon reflection and faint temple steps along the bottom bank
+      const mx = W * 0.72, my = H * 0.3, mr = 46 * worldScale;
+      const g = fc.createRadialGradient(mx, my, 4, mx, my, mr * 2.6);
+      g.addColorStop(0, 'rgba(246, 231, 176, 0.32)');
+      g.addColorStop(0.4, 'rgba(246, 231, 176, 0.1)');
+      g.addColorStop(1, 'rgba(246, 231, 176, 0)');
+      fc.fillStyle = g;
+      fc.beginPath(); fc.arc(mx, my, mr * 2.6, 0, TAU); fc.fill();
+      fc.fillStyle = 'rgba(246, 231, 176, 0.22)';
+      fc.beginPath(); fc.arc(mx, my, mr, 0, TAU); fc.fill();
+      fc.fillStyle = 'rgba(12, 16, 34, 0.7)';
+      for (let k = 0; k < 3; k++) fc.fillRect(W * 0.3 - k * 18, H - 26 - k * 12, W * 0.4 + k * 36, 10);
+    } else if (pond.id === 'maple') {
+      // Sunken red leaves on the pond floor
+      const r = mulberry(7);
+      for (let i = 0; i < 40; i++) {
+        drawMapleLeaf(fc, r() * W, r() * H, (6 + r() * 7) * worldScale, r() * TAU,
+          i % 3 === 0 ? 'rgba(160, 50, 20, 0.35)' : 'rgba(120, 70, 20, 0.3)');
+      }
+    } else if (pond.id === 'winter') {
+      // Ice patches: pale, glossy ellipses that make the koi slide
+      const spots = [[0.25, 0.35, 0.11], [0.62, 0.6, 0.13], [0.45, 0.82, 0.09], [0.82, 0.42, 0.08]];
+      for (const [fx, fy, fr] of spots) {
+        const rx = Math.min(W, H) * fr * 1.5, ry = Math.min(W, H) * fr;
+        const x = fx * W, y = fy * H;
+        iceZones.push({ x, y, rx, ry });
+        const g = fc.createRadialGradient(x, y, 4, x, y, rx);
+        g.addColorStop(0, 'rgba(225, 245, 255, 0.28)');
+        g.addColorStop(1, 'rgba(200, 230, 250, 0.12)');
+        fc.fillStyle = g;
+        fc.beginPath(); fc.ellipse(x, y, rx, ry, 0, 0, TAU); fc.fill();
+        fc.strokeStyle = 'rgba(235, 250, 255, 0.45)';
+        fc.lineWidth = 1.5;
+        fc.stroke();
+        fc.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+        fc.beginPath();
+        fc.moveTo(x - rx * 0.4, y - ry * 0.2); fc.lineTo(x - rx * 0.1, y - ry * 0.45);
+        fc.moveTo(x + rx * 0.1, y + ry * 0.1); fc.lineTo(x + rx * 0.35, y - ry * 0.15);
+        fc.stroke();
+      }
+      // Snow banks along the edges
+      fc.fillStyle = 'rgba(235, 248, 255, 0.18)';
+      for (let i = 0; i < 18; i++) {
+        fc.beginPath(); fc.arc((i / 17) * W, 0, 28 * worldScale, 0, TAU); fc.fill();
+        fc.beginPath(); fc.arc((i / 17) * W, H, 28 * worldScale, 0, TAU); fc.fill();
+      }
+    }
+  }
+
+  function mulberry(seed) {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6D2B79F5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function drawMapleLeaf(c, x, y, r, rot, color) {
+    c.save();
+    c.translate(x, y);
+    c.rotate(rot);
+    c.fillStyle = color;
+    c.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * TAU - Math.PI / 2;
+      const rr = i % 2 === 0 ? r : r * 0.45;
+      const px = Math.cos(a) * rr, py = Math.sin(a) * rr;
+      if (i === 0) c.moveTo(px, py); else c.lineTo(px, py);
+    }
+    c.closePath();
+    c.fill();
+    c.restore();
+  }
+
+  function isOnIce(x, y) {
+    for (const z of iceZones) {
+      const dx = (x - z.x) / z.rx, dy = (y - z.y) / z.ry;
+      if (dx * dx + dy * dy < 1) return true;
+    }
+    return false;
   }
 
   function layoutPier() {
@@ -2093,7 +2367,8 @@
     day_bucket: dayBucket(),
     session_bucket: sessionBucket(),
     build: BUILD,
-    host: HOST
+    host: HOST,
+    pond: currentPondId()
   }));
 
   function trackOnboarding(step) {
@@ -2147,6 +2422,16 @@
 
   function getMaxStamina() {
     return 100 * (1 + (save.upgrades.swiftfins || 0) * 0.25);
+  }
+
+  function isPondUnlocked(id) {
+    return (save.totalHarvested || 0) >= PONDS[id].unlockAt;
+  }
+  function currentPondId() {
+    return PONDS[save.pond] && isPondUnlocked(save.pond) ? save.pond : 'garden';
+  }
+  function getPond() {
+    return PONDS[currentPondId()];
   }
 
   function getComboWindow() {
@@ -2227,7 +2512,7 @@
       const tier = getMaturityTier(fk.xp);
       raw += 28 * vMult * tier.mult;
     }
-    const base = Math.round(raw * schoolScaleBonus * repMult * modeMult);
+    const base = Math.round(raw * schoolScaleBonus * repMult * modeMult * getPond().mult);
     const ord = evaluateOrderProgress();
     const bonus = ord.complete ? Math.round(base * ord.order.bonus) : 0;
     return { base, bonus, total: base + bonus, orderComplete: ord.complete };
@@ -2396,7 +2681,8 @@
       const lotusChance = 0.05 + (hasTrait('tancho') ? 0.08 : 0) + (save.upgrades.goldenbait || 0) * 0.015;
       const shrimpChance = 0.18 + (save.upgrades.goldenbait || 0) * 0.05;
       const roll = Math.random();
-      if (roll < lotusChance) kind = 'lotus';
+      if (getPond().id === 'maple' && Math.random() < 0.3) kind = 'leaf';
+      else if (roll < lotusChance) kind = 'lotus';
       else if (roll < lotusChance + 0.08) kind = 'dragonfly';
       else if (roll < lotusChance + 0.08 + shrimpChance) kind = 'shrimp';
       else kind = 'pellet';
@@ -2578,6 +2864,42 @@
     }
   }
 
+  function setPond(id, announce = false) {
+    if (!PONDS[id] || !isPondUnlocked(id)) return;
+    save.pond = id;
+    persist(true);
+    weather.length = 0;
+    rebuildFloorCache();
+    rebuildLiliesAndShrines();
+    Sound.setMood(POND_KEYS.indexOf(id));
+    cachedOrderSig = '';
+    if (leadKoi) addRipple(leadKoi.x, leadKoi.y, 160, 'rgba(255, 210, 105, 0.6)', 2.2);
+    if (announce) KoiAnalytics.track('pond_select', { pond: id });
+  }
+
+  // Newly reached milestones unlock a pond and move the player there.
+  function checkPondUnlocks() {
+    for (const id of POND_KEYS) {
+      if (isPondUnlocked(id) && !save.pondsSeen.includes(id)) {
+        save.pondsSeen.push(id);
+        KoiAnalytics.track('pond_unlocked', { pond: id, koi_sold: save.totalHarvested });
+        setTimeout(() => {
+          setPond(id);
+          Sound.kotoArpeggio(7, 2);
+          showToast(`New pond unlocked: ${PONDS[id].name}!`, PONDS[id].blurb);
+        }, 900);
+        break;
+      }
+    }
+  }
+
+  function nextPondHint() {
+    for (const id of POND_KEYS) {
+      if (!isPondUnlocked(id)) return { pond: PONDS[id], left: PONDS[id].unlockAt - (save.totalHarvested || 0) };
+    }
+    return null;
+  }
+
   function executeHarvest() {
     if (school.length === 0) return;
     const count = school.length;
@@ -2636,6 +2958,7 @@
 
     Sound.kotoArpeggio(bd.orderComplete ? 6 : 4, bd.orderComplete ? 1 : 0);
     school.length = 0;
+    checkPondUnlocks();
     harvestCharge = 0;
     triggerYenPop();
     syncHUD();
@@ -2703,12 +3026,16 @@
       }
     }
 
+    const pondNow = getPond();
+    const onIce = pondNow.ice && isOnIce(leadKoi.x, leadKoi.y);
     if (desiredAngle !== null) {
       let diff = desiredAngle - leadKoi.angle;
       while (diff > Math.PI) diff -= TAU;
       while (diff < -Math.PI) diff += TAU;
-      const turnSpeed = 5.4;
-      leadKoi.angle += Math.max(-turnSpeed * dt, Math.min(turnSpeed * dt, diff * 7.5 * dt));
+      // On ice the koi slides: it turns far more slowly.
+      const turnSpeed = onIce ? 1.6 : 5.4;
+      const turnGain = onIce ? 2.2 : 7.5;
+      leadKoi.angle += Math.max(-turnSpeed * dt, Math.min(turnSpeed * dt, diff * turnGain * dt));
     }
 
     // Dash & Stamina
@@ -2741,12 +3068,18 @@
     if (isIdle) leadKoi.angle += 0.7 * dt;
 
     const baseSpeed = 148 * worldScale;
-    const targetSpeed = isDashing ? baseSpeed * 1.68 : (isIdle ? baseSpeed * 0.35 : baseSpeed);
+    const targetSpeed = (isDashing ? baseSpeed * 1.68 : (isIdle ? baseSpeed * 0.35 : baseSpeed)) * (onIce ? 1.18 : 1);
     leadKoi.speed += (targetSpeed - leadKoi.speed) * Math.min(1, dt * 7);
 
     const step = leadKoi.speed * dt;
     leadKoi.x += Math.cos(leadKoi.angle) * step;
     leadKoi.y += Math.sin(leadKoi.angle) * step;
+    // Stream current drifts the koi and its school
+    if (pondNow.current) {
+      const cx = pondNow.current.x * worldScale * dt, cy = pondNow.current.y * worldScale * dt;
+      leadKoi.x += cx; leadKoi.y += cy;
+      for (const fk of school) { fk.x += cx; fk.y += cy; }
+    }
 
     if (!hintDismissed && (desiredAngle !== null || isDashing)) {
       fireGameStartOnce();
@@ -2908,6 +3241,13 @@
         }
       }
 
+      if (pondNow.current && f.kind !== 'dragonfly') {
+        f.x += pondNow.current.x * 0.5 * worldScale * dt;
+        f.y += pondNow.current.y * 0.5 * worldScale * dt;
+        if (f.x > W - 20) f.x = 30;
+        if (f.y > H - 20) f.y = 70;
+      }
+
       const dx = leadKoi.x - f.x;
       const dy = leadKoi.y - f.y;
       const d = Math.hypot(dx, dy);
@@ -2953,7 +3293,8 @@
       const first = isFirstRun();
       const turtleOk = first ? (runTime > 16 || school.length >= 1) : runTime > 5;
       const heronOk = first ? (runTime > 24 && school.length >= 2) : (runTime > 9 && school.length >= 1);
-      const targetTurtles = school.length >= 1 ? Math.min(2, 1 + Math.floor(school.length / 5)) : 1;
+      const turtleCap = pondNow.id === 'maple' ? 3 : 2;
+      const targetTurtles = school.length >= 1 ? Math.min(turtleCap, 1 + Math.floor(school.length / 5)) : 1;
       if (turtleOk && turtles.length < targetTurtles && Math.random() < dt * (turtles.length === 0 ? 1.2 : 0.35)) {
         spawnTurtle();
       }
@@ -2961,7 +3302,7 @@
       if (heronOk && mercy <= 0) {
         hazardSpawnTimer -= dt;
         if (hazardSpawnTimer <= 0) {
-          hazardSpawnTimer = Math.max(3.4, 7.0 - school.length * 0.3);
+          hazardSpawnTimer = Math.max(3.4, 7.0 - school.length * 0.3) * (pondNow.dark ? 0.8 : 1);
           if (herons.length < (school.length >= 6 ? 2 : 1)) spawnHeron();
         }
       }
@@ -2972,6 +3313,7 @@
 
     updateTurtles(dt);
     updateHerons(dt);
+    updateWeather(dt);
 
     // 6. Surface Lily Pad Occlusion Fade (Smoothly fades when koi swim beneath)
     for (const pad of lilies) {
@@ -3040,7 +3382,10 @@
     let xpGain = 22;
     let special = false;
 
-    if (f.kind === 'shrimp') {
+    if (f.kind === 'leaf') {
+      baseYen = 4;
+      xpGain = 16;
+    } else if (f.kind === 'shrimp') {
       baseYen = 15;
       xpGain = 44;
       special = true;
@@ -3081,6 +3426,103 @@
     addParticles(f.x, f.y, special ? 10 : 5, special ? '#ffd269' : '#f3c669', 65, 2.3);
     addPopup(f.x, f.y - 12 * worldScale, `+¥${earned}`, special ? '#5eead4' : '#ffd269', special);
     Sound.plop(comboHits, special);
+  }
+
+  const weather = [];
+  function updateWeather(dt) {
+    const p = getPond();
+    const kind = p.weather;
+    if (kind) {
+      const rate = kind === 'snow' ? 7 : kind === 'firefly' ? 0 : kind === 'mapleLeaf' ? 1.3 : 0.7;
+      if (kind === 'firefly') {
+        while (weather.length < 16) {
+          weather.push({ kind, x: Math.random() * W, y: Math.random() * H, vx: 0, vy: 0, life: 1, phase: Math.random() * TAU, r: 2 });
+        }
+      } else if (Math.random() < rate * dt && weather.length < 120) {
+        weather.push({
+          kind,
+          x: Math.random() * W * 1.1 - W * 0.05,
+          y: -12,
+          vx: (kind === 'snow' ? 10 : 22) * worldScale * (Math.random() - 0.3),
+          vy: (kind === 'snow' ? 28 : 34) * worldScale * (0.7 + Math.random() * 0.6),
+          life: 1,
+          phase: Math.random() * TAU,
+          r: (kind === 'snow' ? 1.6 + Math.random() * 1.6 : 7 + Math.random() * 4) * worldScale
+        });
+      }
+    }
+    for (let i = weather.length - 1; i >= 0; i--) {
+      const w = weather[i];
+      if (w.kind !== kind) { weather.splice(i, 1); continue; }
+      w.phase += dt * 2;
+      if (w.kind === 'firefly') {
+        w.x += Math.cos(w.phase * 0.7) * 14 * dt;
+        w.y += Math.sin(w.phase * 0.9) * 10 * dt;
+      } else {
+        w.x += (w.vx + Math.sin(w.phase) * 12) * dt;
+        w.y += w.vy * dt;
+        if (w.y > H + 20) weather.splice(i, 1);
+      }
+    }
+  }
+
+  function renderWeather() {
+    for (const w of weather) {
+      if (w.kind === 'snow') {
+        ctx.fillStyle = 'rgba(240, 250, 255, 0.85)';
+        ctx.beginPath(); ctx.arc(w.x, w.y, w.r, 0, TAU); ctx.fill();
+      } else if (w.kind === 'mapleLeaf') {
+        drawMapleLeaf(ctx, w.x, w.y, w.r, w.phase, 'rgba(226, 96, 40, 0.9)');
+      } else if (w.kind === 'bambooLeaf') {
+        ctx.save();
+        ctx.translate(w.x, w.y); ctx.rotate(w.phase);
+        ctx.fillStyle = 'rgba(150, 210, 120, 0.8)';
+        ctx.beginPath(); ctx.ellipse(0, 0, w.r, w.r * 0.25, 0, 0, TAU); ctx.fill();
+        ctx.restore();
+      } else if (w.kind === 'firefly') {
+        const a = 0.35 + Math.sin(w.phase * 2) * 0.35;
+        const g = ctx.createRadialGradient(w.x, w.y, 0, w.x, w.y, 10);
+        g.addColorStop(0, `rgba(255, 236, 150, ${a})`);
+        g.addColorStop(1, 'rgba(255, 236, 150, 0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(w.x, w.y, 10, 0, TAU); ctx.fill();
+      }
+    }
+  }
+
+  // Moonlit Temple: everything dims except a pool of light around the koi,
+  // the pier lanterns and a few floating lanterns.
+  const FLOAT_LANTERNS = [[0.18, 0.55], [0.5, 0.42], [0.78, 0.72]];
+  function renderNight() {
+    if (!getPond().dark || !leadKoi) return;
+    for (const [fx, fy] of FLOAT_LANTERNS) {
+      const x = fx * W + Math.sin(totalTime * 0.6 + fx * 9) * 8;
+      const y = fy * H + Math.cos(totalTime * 0.5 + fy * 7) * 6;
+      ctx.fillStyle = '#f2b54a';
+      ctx.strokeStyle = '#6b3e14';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.roundRect(x - 6 * worldScale, y - 8 * worldScale, 12 * worldScale, 16 * worldScale, 3); ctx.fill(); ctx.stroke();
+    }
+    const R = 270 * worldScale;
+    const g = ctx.createRadialGradient(leadKoi.x, leadKoi.y, 70 * worldScale, leadKoi.x, leadKoi.y, R);
+    g.addColorStop(0, 'rgba(2, 5, 14, 0)');
+    g.addColorStop(1, 'rgba(2, 5, 14, 0.74)');
+    ctx.fillStyle = g;
+    ctx.fillRect(-20, -20, W + 40, H + 40);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const lights = FLOAT_LANTERNS.map(([fx, fy]) => [fx * W, fy * H, 120]);
+    lights.push([pier.x + 14 * worldScale, pier.y + pier.h - 12 * worldScale, 150], [pier.x + pier.w - 14 * worldScale, pier.y + pier.h - 12 * worldScale, 150]);
+    // Keep the pier, its sell ring and its sign readable at night.
+    lights.push([pier.basketX, pier.basketY + 20 * worldScale, 190]);
+    for (const [x, y, r] of lights) {
+      const lg = ctx.createRadialGradient(x, y, 2, x, y, r * worldScale);
+      lg.addColorStop(0, `rgba(255, 196, 110, ${r > 160 ? 0.3 : 0.22})`);
+      lg.addColorStop(1, 'rgba(255, 196, 110, 0)');
+      ctx.fillStyle = lg;
+      ctx.beginPath(); ctx.arc(x, y, r * worldScale, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
   }
 
   function updateTurtles(dt) {
@@ -3294,7 +3736,7 @@
      ========================================================================= */
   function renderCaustics() {
     ctx.save();
-    ctx.strokeStyle = 'rgba(72, 168, 196, 0.055)';
+    ctx.strokeStyle = getPond().caustic;
     ctx.lineWidth = 22 * worldScale;
     ctx.lineCap = 'round';
     for (let i = 0; i < 4; i++) {
@@ -3454,8 +3896,9 @@
     ctx.fill();
 
     // Clear In-World Pier Status Label Pill
+    const np = nextPondHint();
     const labelText = !hasSchool
-      ? 'KOI MARKET • GROW SCHOOL'
+      ? (np && (save.totalHarvested || 0) > 0 ? `${np.left} MORE KOI SOLD \u2192 ${np.pond.name.toUpperCase()}` : 'KOI MARKET • GROW SCHOOL')
       : (isOrderReady ? `ORDER READY! • +¥${bd.total}` : `SWIM TO SELL • +¥${bd.total}`);
 
     ctx.font = `700 ${Math.max(10, Math.round(11 * worldScale))}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
@@ -3527,6 +3970,12 @@
         ctx.beginPath();
         ctx.arc(fx, fy, f.r * 0.75, 0, TAU);
         ctx.fill();
+      } else if (f.kind === 'leaf') {
+        ctx.fillStyle = 'rgba(255, 140, 60, 0.25)';
+        ctx.beginPath();
+        ctx.arc(fx, fy, f.r * 2, 0, TAU);
+        ctx.fill();
+        drawMapleLeaf(ctx, fx, fy, f.r * 1.3, f.phase * 0.2, '#e8642a');
       } else if (f.kind === 'shrimp') {
         ctx.fillStyle = 'rgba(251, 113, 133, 0.35)';
         ctx.beginPath();
@@ -4013,9 +4462,10 @@
 
       // Muted Jade-Green Lily Pad
       const padGrad = ctx.createRadialGradient(cx, cy, pad.r * 0.15, cx, cy, pad.r);
-      padGrad.addColorStop(0, '#1d5646');
-      padGrad.addColorStop(0.85, '#154236');
-      padGrad.addColorStop(1, '#266d58');
+      const lc = getPond().lily;
+      padGrad.addColorStop(0, lc[0]);
+      padGrad.addColorStop(0.85, lc[1]);
+      padGrad.addColorStop(1, lc[2]);
       ctx.fillStyle = padGrad;
       ctx.beginPath();
       ctx.arc(cx, cy, pad.r, pad.notch + 0.28, pad.notch + TAU - 0.28);
@@ -4244,6 +4694,8 @@
 
     // Layer 3: Surface Lily Pads, Particles, Popups & Coin Flights
     renderSurfaceLilies();
+    renderWeather();
+    renderNight();
 
     for (const p of particles) {
       ctx.save();
@@ -4453,6 +4905,7 @@
   const shopYenVal = document.getElementById('shop-yen-val');
   const tabVarieties = document.getElementById('tab-varieties');
   const tabUpgrades = document.getElementById('tab-upgrades');
+  const tabPonds = document.getElementById('tab-ponds');
   let activeShopTab = 'varieties';
 
   const toastEl = document.getElementById('toast');
@@ -4485,7 +4938,37 @@
     shopYenVal.textContent = `¥${save.yen.toLocaleString()}`;
     tabVarieties.classList.toggle('active', activeShopTab === 'varieties');
     tabUpgrades.classList.toggle('active', activeShopTab === 'upgrades');
+    tabPonds.classList.toggle('active', activeShopTab === 'ponds');
     shopGrid.innerHTML = '';
+
+    if (activeShopTab === 'ponds') {
+      const sold = save.totalHarvested || 0;
+      for (const id of POND_KEYS) {
+        const p = PONDS[id];
+        const open = isPondUnlocked(id);
+        const active = currentPondId() === id;
+        const pct = Math.min(100, Math.round((sold / Math.max(1, p.unlockAt)) * 100));
+        const card = document.createElement('div');
+        card.className = `item-card${active ? ' equipped' : ''}`;
+        card.innerHTML = `
+          <div>
+            <div class="item-top">
+              <div class="item-title"><span class="koi-swatch" style="background:${p.swatch};"></span>${p.name}</div>
+              <span class="item-badge">${active ? 'HERE NOW' : (open ? 'UNLOCKED' : `${sold}/${p.unlockAt} KOI SOLD`)}</span>
+            </div>
+            <div class="item-desc" style="margin-top:6px;">${p.blurb}</div>
+          </div>
+          <div class="item-footer">
+            ${open ? `<span style="font-size:11.5px;color:var(--text-muted);">Sale value ${p.mult.toFixed(2)}\u00D7</span>`
+                   : `<div class="pips" style="flex:1;margin-right:10px;"><span class="pip on" style="width:${pct}%;min-width:6px;"></span></div>`}
+            <button class="action-btn${open && !active ? ' equip-ready' : ''}" type="button" data-act="pond" data-id="${id}" ${!open || active ? 'disabled' : ''}>
+              ${active ? 'Swimming' : (open ? 'Swim here' : 'Locked')}
+            </button>
+          </div>`;
+        shopGrid.appendChild(card);
+      }
+      return;
+    }
 
     if (activeShopTab === 'varieties') {
       for (const key of VARIETY_KEYS) {
@@ -4574,6 +5057,13 @@
     const act = btn.dataset.act;
     const id = btn.dataset.id;
 
+    if (act === 'pond') {
+      setPond(id, true);
+      Sound.kotoArpeggio(4, 2);
+      renderShop();
+      showToast(`Now swimming in ${PONDS[id].name}`, PONDS[id].blurb);
+      return;
+    }
     if (act === 'buy-var') {
       const v = VARIETIES[id];
       if (save.yen >= v.cost && !save.unlocked.includes(id)) {
@@ -4672,6 +5162,8 @@
   document.getElementById('btn-enter-pond').addEventListener('click', () => {
     if (state !== 'welcome') return;
     Sound.unlock();
+    Sound.setMood(POND_KEYS.indexOf(currentPondId()));
+    Sound.startAmbient();
     Sound.kotoArpeggio(3, 0);
     const splash = document.getElementById('start-overlay');
     splash.classList.add('leaving');
@@ -4699,6 +5191,7 @@
   document.getElementById('btn-close-shop').addEventListener('click', closeShop);
   tabVarieties.addEventListener('click', () => { activeShopTab = 'varieties'; renderShop(); });
   tabUpgrades.addEventListener('click', () => { activeShopTab = 'upgrades'; renderShop(); });
+  tabPonds.addEventListener('click', () => { activeShopTab = 'ponds'; renderShop(); });
 
   document.getElementById('btn-open-settings').addEventListener('click', openSettings);
   document.getElementById('btn-close-settings').addEventListener('click', closeSettings);
@@ -4726,18 +5219,25 @@
     persist();
     syncSettingsUI();
   });
-  document.getElementById('set-sound-on').addEventListener('click', () => {
-    save.soundOn = true;
-    Sound.unlock();
-    Sound.plop(3, false);
+  function setSound(on) {
+    save.soundOn = on;
     persist();
+    Sound.setEnabled(on);
+    if (on) Sound.plop(3, false);
     syncSettingsUI();
-  });
-  document.getElementById('set-sound-off').addEventListener('click', () => {
-    save.soundOn = false;
-    persist();
-    syncSettingsUI();
-  });
+    syncSoundButton();
+  }
+  const SPEAKER_ON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>';
+  const SPEAKER_OFF = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>';
+  const btnSound = document.getElementById('btn-sound');
+  function syncSoundButton() {
+    btnSound.innerHTML = save.soundOn ? SPEAKER_ON : SPEAKER_OFF;
+    btnSound.setAttribute('aria-label', save.soundOn ? 'Mute sound' : 'Turn sound on');
+  }
+  syncSoundButton();
+  btnSound.addEventListener('click', () => setSound(!save.soundOn));
+  document.getElementById('set-sound-on').addEventListener('click', () => setSound(true));
+  document.getElementById('set-sound-off').addEventListener('click', () => setSound(false));
 
   btnResetSave.addEventListener('click', () => {
     if (!resetArmed) {
@@ -4757,6 +5257,8 @@
       save = createDefaultSave();
       save.pid = keepPid;
       save.sessions = 1;
+      weather.length = 0;
+      rebuildFloorCache();
       persist(true);
       cachedYenStr = '';
       cachedOrderSig = '';
@@ -4968,7 +5470,9 @@
     window.__koi = {
       get lead() { return leadKoi; }, foods, school, turtles, herons, pier,
       get runTime() { return runTime; }, get coachStep() { return coach.step; },
-      get idleTime() { return idleTime; }
+      get idleTime() { return idleTime; },
+      setPond: (id) => { save.totalHarvested = Math.max(save.totalHarvested || 0, PONDS[id].unlockAt); setPond(id); },
+      save
     };
   }
 

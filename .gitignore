@@ -1,0 +1,5 @@
+tests/out/
+source/dist/
+node_modules/
+.env
+*.zip
